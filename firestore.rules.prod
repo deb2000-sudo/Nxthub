@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+        // Users collection
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Influencers collection
+    match /influencers/{influencerId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+                              (resource.data.createdBy == request.auth.token.email ||
+                               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'executive');
+    }
+    
+    // Campaigns collection
+    match /campaigns/{campaignId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && 
+                       (resource.data.department == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.department ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'executive');
+    }
+  }
+}
+
