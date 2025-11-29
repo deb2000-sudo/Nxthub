@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, ArrowRight, BarChart3, Users, Globe } from 'lucide-react';
+import { Megaphone, ArrowRight } from 'lucide-react';
 
 const GetStarted: React.FC = () => {
   const navigate = useNavigate();
@@ -53,31 +53,6 @@ const GetStarted: React.FC = () => {
           Get Started Now
           <ArrowRight className="group-hover:translate-x-1 transition-transform" />
         </button>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 max-w-6xl w-full px-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-500 mb-4">
-              <Users size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Influencer Management</h3>
-            <p className="text-gray-400">Organize and track all your influencer partnerships in a centralized database.</p>
-          </div>
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-500 mb-4">
-              <BarChart3 size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Campaign Tracking</h3>
-            <p className="text-gray-400">Monitor campaign status, budgets, and performance metrics in real-time.</p>
-          </div>
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 mb-4">
-              <Globe size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Global Reach</h3>
-            <p className="text-gray-400">Scale your marketing efforts across different regions and languages effortlessly.</p>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}
