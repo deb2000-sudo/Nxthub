@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, ArrowRight, BarChart3, Users, Globe } from 'lucide-react';
+import { Megaphone, ArrowRight } from 'lucide-react';
 
 const GetStarted: React.FC = () => {
   const navigate = useNavigate();
@@ -30,13 +30,7 @@ const GetStarted: React.FC = () => {
         {/* Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-600/20 rounded-full blur-[120px] -z-10"></div>
 
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-400 text-sm font-medium mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
-          </span>
-          The Future of Influencer Marketing
-        </div>
+
 
         <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 max-w-4xl bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-6 duration-1000">
           Manage Campaigns & Influencers in One Place
@@ -53,31 +47,6 @@ const GetStarted: React.FC = () => {
           Get Started Now
           <ArrowRight className="group-hover:translate-x-1 transition-transform" />
         </button>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 max-w-6xl w-full px-4 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-500 mb-4">
-              <Users size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Influencer Management</h3>
-            <p className="text-gray-400">Organize and track all your influencer partnerships in a centralized database.</p>
-          </div>
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center text-purple-500 mb-4">
-              <BarChart3 size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Campaign Tracking</h3>
-            <p className="text-gray-400">Monitor campaign status, budgets, and performance metrics in real-time.</p>
-          </div>
-          <div className="bg-dark-800/50 border border-dark-700 p-8 rounded-2xl hover:border-primary-500/50 transition-colors">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-500 mb-4">
-              <Globe size={24} />
-            </div>
-            <h3 className="text-xl font-bold mb-2">Global Reach</h3>
-            <p className="text-gray-400">Scale your marketing efforts across different regions and languages effortlessly.</p>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}

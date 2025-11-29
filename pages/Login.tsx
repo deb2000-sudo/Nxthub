@@ -108,35 +108,7 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-dark-700">
-            <p className="text-xs text-gray-500 text-center mb-4">Quick Fill (For Demo):</p>
-            <div className="grid grid-cols-1 gap-2">
-              <button 
-                onClick={() => fillCredentials('admin@nxthub.co.in', 'admin@123')}
-                className="text-left px-3 py-2 rounded hover:bg-dark-700 text-xs text-gray-400 transition-colors"
-              >
-                <span className="text-purple-400 font-bold">Admin:</span> admin@nxthub.co.in
-              </button>
-              <button 
-                onClick={() => fillCredentials('marketing@nxthub.com')}
-                className="text-left px-3 py-2 rounded hover:bg-dark-700 text-xs text-gray-400 transition-colors"
-              >
-                <span className="text-primary-400 font-bold">Manager (Marketing):</span> marketing@nxthub.com
-              </button>
-               <button 
-                onClick={() => fillCredentials('sales@nxthub.com')}
-                className="text-left px-3 py-2 rounded hover:bg-dark-700 text-xs text-gray-400 transition-colors"
-              >
-                <span className="text-primary-400 font-bold">Manager (Sales):</span> sales@nxthub.com
-              </button>
-              <button 
-                onClick={() => fillCredentials('exec@nxthub.com')}
-                className="text-left px-3 py-2 rounded hover:bg-dark-700 text-xs text-gray-400 transition-colors"
-              >
-                <span className="text-emerald-400 font-bold">Executive:</span> exec@nxthub.com
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
