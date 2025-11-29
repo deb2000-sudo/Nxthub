@@ -21,9 +21,9 @@ const localStorageService = {
     } catch (e) {
       console.error("Error parsing campaigns from storage", e);
     }
-    // Initialize with mocks if empty
-    localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(MOCK_CAMPAIGNS));
-    return MOCK_CAMPAIGNS;
+    // Initialize with empty array if empty
+    localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify([]));
+    return [];
   },
 
   saveCampaigns: (campaigns: Campaign[]) => {
@@ -80,8 +80,8 @@ const localStorageService = {
     } catch (e) {
       console.error("Error parsing influencers from storage", e);
     }
-    localStorage.setItem(INFLUENCERS_KEY, JSON.stringify(MOCK_INFLUENCERS));
-    return MOCK_INFLUENCERS;
+    localStorage.setItem(INFLUENCERS_KEY, JSON.stringify([]));
+    return [];
   },
 
   addInfluencer: (influencer: Influencer): Influencer[] => {
@@ -116,8 +116,8 @@ export const dataService = {
     try {
       return await firebaseCampaignsService.getCampaigns();
     } catch (error) {
-      console.error('Firebase error, falling back to localStorage:', error);
-      return localStorageService.getCampaigns();
+      console.error('Firebase error:', error);
+      throw error;
     }
   },
 
@@ -189,8 +189,8 @@ export const dataService = {
     try {
       return await firebaseInfluencersService.getInfluencers();
     } catch (error) {
-      console.error('Firebase error, falling back to localStorage:', error);
-      return localStorageService.getInfluencers();
+      console.error('Firebase error:', error);
+      throw error;
     }
   },
 

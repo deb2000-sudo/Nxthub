@@ -52,9 +52,7 @@ export const firebaseCampaignsService = {
       const querySnapshot: QuerySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        // Initialize with mock data if empty
-        await this.initializeWithMockData();
-        return MOCK_CAMPAIGNS;
+        return [];
       }
       
       return querySnapshot.docs.map((doc) => ({
@@ -205,34 +203,7 @@ export const firebaseCampaignsService = {
     }
   },
 
-  async initializeWithMockData(): Promise<void> {
-    if (!db) throw new Error('Firestore not initialized');
-    
-    try {
-      // Check if campaigns already exist
-      const campaignsRef = collection(db, COLLECTIONS.CAMPAIGNS);
-      const snapshot = await getDocs(campaignsRef);
-      
-      if (snapshot.empty) {
-        // Add mock campaigns
-        const batch = MOCK_CAMPAIGNS.map((campaign) => {
-          const { id, ...data } = campaign;
-          return addDoc(campaignsRef, {
-            ...data,
-            startDate: isoToTimestamp(campaign.startDate),
-            endDate: isoToTimestamp(campaign.endDate),
-            lastUpdated: campaign.lastUpdated ? isoToTimestamp(campaign.lastUpdated) : Timestamp.now(),
-          });
-        });
-        
-        await Promise.all(batch);
-        console.log('✅ Initialized campaigns with mock data');
-      }
-    } catch (error) {
-      console.error('Error initializing mock data:', error);
-      throw error;
-    }
-  },
+
 };
 
 // Influencers Service
@@ -246,9 +217,7 @@ export const firebaseInfluencersService = {
       const querySnapshot: QuerySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        // Initialize with mock data if empty
-        await this.initializeWithMockData();
-        return MOCK_INFLUENCERS;
+        return [];
       }
       
       return querySnapshot.docs.map((doc) => ({
@@ -329,27 +298,7 @@ export const firebaseInfluencersService = {
     }
   },
 
-  async initializeWithMockData(): Promise<void> {
-    if (!db) throw new Error('Firestore not initialized');
-    
-    try {
-      const influencersRef = collection(db, COLLECTIONS.INFLUENCERS);
-      const snapshot = await getDocs(influencersRef);
-      
-      if (snapshot.empty) {
-        const batch = MOCK_INFLUENCERS.map((influencer) => {
-          const { id, ...data } = influencer;
-          return addDoc(influencersRef, data);
-        });
-        
-        await Promise.all(batch);
-        console.log('✅ Initialized influencers with mock data');
-      }
-    } catch (error) {
-      console.error('Error initializing mock data:', error);
-      throw error;
-    }
-  },
+
 };
 
 // Users Service

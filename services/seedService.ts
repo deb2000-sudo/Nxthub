@@ -113,6 +113,7 @@ export const seedAllData = async (): Promise<void> => {
     */
 
     // Seed Influencers
+    /*
     const influencersRef = collection(db, 'influencers');
     const influencersSnapshot = await getDocs(influencersRef);
     
@@ -126,8 +127,10 @@ export const seedAllData = async (): Promise<void> => {
     } else {
       console.log('✅ Influencers collection already has data');
     }
+    */
 
     // Seed Campaigns
+    /*
     const campaignsRef = collection(db, 'campaigns');
     const campaignsSnapshot = await getDocs(campaignsRef);
     
@@ -146,6 +149,7 @@ export const seedAllData = async (): Promise<void> => {
     } else {
       console.log('✅ Campaigns collection already has data');
     }
+    */
 
     console.log('🎉 Data seeding completed!');
   } catch (error) {
