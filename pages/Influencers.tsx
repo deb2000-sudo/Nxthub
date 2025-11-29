@@ -103,7 +103,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     mobileCountryCode: initialMobile.code,
     mobileNumber: initialMobile.number,
 
-    pan: '', 
+    pan: editingInfluencer?.pan || '', 
     
     platform1_name: 'Instagram',
     platform1_channel: '',
@@ -116,7 +116,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     category: editingInfluencer?.category || '',
     department: editingInfluencer?.department || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
-    lastPromoBy: 'Marketing',
+    lastPromoBy: editingInfluencer?.lastPromoBy || 'Marketing',
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
     lastPricePaid: editingInfluencer?.lastPricePaid?.toString() || ''
   });
@@ -165,10 +165,11 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       avatar: isEditMode ? editingInfluencer.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=random`,
       email: formData.email,
       mobile: fullMobile,
-      location: formData.languages.join(', '), 
+      pan: formData.pan,
       language: formData.languages.join(', '),
       lastPricePaid: formData.lastPricePaid ? Number(formData.lastPricePaid) : 0,
       lastPromoDate: formData.lastPromoDate,
+      lastPromoBy: formData.lastPromoBy,
       platforms: {
         [formData.platform1_name.toLowerCase()]: formData.platform1_username,
         ...(formData.platform2_username ? { [formData.platform2_name.toLowerCase()]: formData.platform2_username } : {})

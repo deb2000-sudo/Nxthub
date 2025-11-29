@@ -23,12 +23,12 @@ class MockDatabase {
 
     // Initialize Influencers
     if (!localStorage.getItem(STORAGE_KEYS.INFLUENCERS)) {
-      this.setItem(STORAGE_KEYS.INFLUENCERS, MOCK_INFLUENCERS);
+      this.setItem(STORAGE_KEYS.INFLUENCERS, []);
     }
 
     // Initialize Campaigns
     if (!localStorage.getItem(STORAGE_KEYS.CAMPAIGNS)) {
-      this.setItem(STORAGE_KEYS.CAMPAIGNS, MOCK_CAMPAIGNS);
+      this.setItem(STORAGE_KEYS.CAMPAIGNS, []);
     }
   }
 

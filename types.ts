@@ -20,10 +20,12 @@ export interface Influencer {
   // Extended details
   email?: string;
   mobile?: string;
+  pan?: string;
   location?: string; // e.g., "Telugu" or City
   language?: string;
   lastPricePaid?: number;
   lastPromoDate?: string;
+  lastPromoBy?: string;
   platforms?: {
     instagram?: string;
     youtube?: string;
