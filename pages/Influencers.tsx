@@ -114,7 +114,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     platform2_username: editingInfluencer?.platforms?.youtube || '',
     
     category: editingInfluencer?.category || '',
-    department: editingInfluencer?.department || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
     lastPromoBy: editingInfluencer?.lastPromoBy || 'Marketing',
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
@@ -147,7 +146,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
         !formData.email ||
         !formData.mobileNumber ||
         !formData.category ||
-        !formData.department ||
         formData.languages.length === 0
     ) {
       alert("Please fill in all required fields marked with *.");
@@ -161,7 +159,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       name: formData.fullName,
       handle: formData.platform1_username.startsWith('@') ? formData.platform1_username : `@${formData.platform1_username}`,
       category: formData.category,
-      department: formData.department,
       avatar: isEditMode ? editingInfluencer.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=random`,
       email: formData.email,
       mobile: fullMobile,
@@ -393,16 +390,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                          value={formData.category}
                          onChange={(val) => handleInputChange('category', val)}
                          placeholder="Select Category"
-                       />
-                 </div>
-
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Department <span className="text-red-500">*</span></label>
-                    <SearchableSelect 
-                         options={deptOptions}
-                         value={formData.department}
-                         onChange={(val) => handleInputChange('department', val)}
-                         placeholder="Select Department"
                        />
                  </div>
                  
