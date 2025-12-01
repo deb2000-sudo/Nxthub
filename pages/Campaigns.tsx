@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Campaign, CampaignStatus } from '../types';
+import { Campaign, CampaignStatus, Department } from '../types';
 import { dataService } from '../services/dataService';
+import { firebaseDepartmentsService } from '../services/firebaseService';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
 import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil } from 'lucide-react';
 
@@ -16,6 +17,7 @@ const Campaigns: React.FC = () => {
   // Initialize state from dataService (async loading)
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Load data on mount
@@ -23,12 +25,14 @@ const Campaigns: React.FC = () => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [campaignsData, influencersData] = await Promise.all([
+        const [campaignsData, influencersData, departmentsData] = await Promise.all([
           dataService.getCampaigns(),
-          dataService.getInfluencers()
+          dataService.getInfluencers(),
+          firebaseDepartmentsService.getDepartments()
         ]);
         setCampaigns(campaignsData);
         setInfluencers(influencersData);
+        setDepartments(departmentsData);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -76,12 +80,16 @@ const Campaigns: React.FC = () => {
 
   // Helper function to check edit permissions
   const canEditCampaign = (campaign: Campaign): boolean => {
+    // Super Admins and Admins have full access
+    if (role === 'super_admin' || role === 'admin') return true;
+
     // Executives are read-only view
     if (role === 'executive') return false;
     
     // Managers can only edit if departments match (case-insensitive)
-    if (role === 'manager' && userDept && campaign.department) {
-      return userDept.toLowerCase() === campaign.department.toLowerCase();
+    if (role === 'manager') {
+        if (!userDept || !campaign.department) return false;
+        return userDept.toLowerCase() === campaign.department.toLowerCase();
     }
 
     return false;
@@ -157,11 +165,7 @@ const Campaigns: React.FC = () => {
 
   const deptOptions: Option[] = [
     { value: 'All', label: 'All Departments' },
-    { value: 'Marketing', label: 'Marketing' },
-    { value: 'Sales', label: 'Sales' },
-    { value: 'HR', label: 'HR' },
-    { value: 'Product', label: 'Product' },
-    { value: 'Operations', label: 'Operations' },
+    ...departments.map(d => ({ value: d.name, label: d.name }))
   ];
 
   // --- Modal: Campaign Details ---
@@ -333,8 +337,7 @@ const Campaigns: React.FC = () => {
       deliverables: editingCampaign?.deliverables || ''
     });
 
-    const DEPARTMENTS = ['Marketing', 'Sales', 'HR', 'Product', 'Operations'];
-    const deptFormOptions: Option[] = DEPARTMENTS.map(d => ({ value: d, label: d }));
+    const deptFormOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
     
     const influencerOptions: Option[] = influencers.map(inf => ({
         value: inf.id,
@@ -431,15 +434,22 @@ const Campaigns: React.FC = () => {
                />
             </div>
 
-            {/* Department Dropdown */}
+            {/* Department Field */}
             <div>
                <label className="block text-sm font-medium text-gray-300 mb-1.5">Department</label>
-               <SearchableSelect 
-                  options={deptFormOptions}
-                  value={formData.department}
-                  onChange={(val) => setFormData({...formData, department: val})}
-                  placeholder="Select Department"
-               />
+               {((role === 'manager' || role === 'executive') && userDept) ? (
+                   <div className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-2.5 text-gray-400 text-sm cursor-not-allowed flex items-center justify-between">
+                       <span>{userDept}</span>
+                       <Lock size={14} className="opacity-50" />
+                   </div>
+               ) : (
+                   <SearchableSelect 
+                      options={deptFormOptions}
+                      value={formData.department}
+                      onChange={(val) => setFormData({...formData, department: val})}
+                      placeholder="Select Department"
+                   />
+               )}
             </div>
 
             {/* Amount */}

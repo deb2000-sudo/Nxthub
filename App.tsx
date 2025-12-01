@@ -8,6 +8,7 @@ import Influencers from './pages/Influencers';
 import Messaging from './pages/Messaging';
 import RoleAssignment from './pages/RoleAssignment';
 import SuperAdminPortal from './pages/SuperAdminPortal';
+import DepartmentManagement from './pages/DepartmentManagement';
 import { initializeDatabase } from './services/seedService';
 
 const App: React.FC = () => {
@@ -27,6 +28,7 @@ const App: React.FC = () => {
         <Route path="/messaging" element={<Messaging />} />
         <Route path="/role-assignment" element={<RoleAssignment />} />
         <Route path="/super-admin" element={<SuperAdminPortal />} />
+        <Route path="/department-management" element={<DepartmentManagement />} />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

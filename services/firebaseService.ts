@@ -15,7 +15,7 @@ import {
   DocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Campaign, Influencer, CampaignStatus, User, Role } from '../types';
+import { Campaign, Influencer, CampaignStatus, User, Role, Department } from '../types';
 import { MOCK_CAMPAIGNS, MOCK_INFLUENCERS, MOCK_USERS } from '../constants';
 
 // Collection names
@@ -23,6 +23,7 @@ const COLLECTIONS = {
   CAMPAIGNS: 'campaigns',
   INFLUENCERS: 'influencers',
   USERS: 'users',
+  DEPARTMENTS: 'departments',
 } as const;
 
 // Helper to convert Firestore timestamp to ISO string
@@ -302,6 +303,69 @@ export const firebaseInfluencersService = {
 };
 
 // Users Service
+// Departments Service
+export const firebaseDepartmentsService = {
+  async getDepartments(): Promise<Department[]> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const deptsRef = collection(db, COLLECTIONS.DEPARTMENTS);
+      const q = query(deptsRef, orderBy('name', 'asc'));
+      const querySnapshot: QuerySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Department[];
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      throw error;
+    }
+  },
+
+  async addDepartment(department: Omit<Department, 'id'>): Promise<Department> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const deptsRef = collection(db, COLLECTIONS.DEPARTMENTS);
+      const docRef = await addDoc(deptsRef, department);
+      
+      return {
+        id: docRef.id,
+        ...department
+      };
+    } catch (error) {
+      console.error('Error adding department:', error);
+      throw error;
+    }
+  },
+
+  async deleteDepartment(id: string): Promise<void> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.DEPARTMENTS, id));
+    } catch (error) {
+      console.error('Error deleting department:', error);
+      throw error;
+    }
+  },
+
+  async bulkAddDepartments(departments: Omit<Department, 'id'>[]): Promise<void> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const batchPromises = departments.map(dept => 
+        addDoc(collection(db, COLLECTIONS.DEPARTMENTS), dept)
+      );
+      await Promise.all(batchPromises);
+    } catch (error) {
+      console.error('Error bulk adding departments:', error);
+      throw error;
+    }
+  }
+};
+
 export const firebaseUsersService = {
   async getUsers(): Promise<User[]> {
     if (!db) throw new Error('Firestore not initialized');
