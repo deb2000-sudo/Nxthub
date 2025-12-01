@@ -93,4 +93,21 @@ export const logout = async (): Promise<void> => {
       console.error('Error signing out:', error);
     }
   }
+  clearSession();
+};
+
+// Session Management
+const SESSION_KEY = 'nxthub_session';
+
+export const saveSession = (user: User) => {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+};
+
+export const getSession = (): User | null => {
+  const session = localStorage.getItem(SESSION_KEY);
+  return session ? JSON.parse(session) : null;
+};
+
+export const clearSession = () => {
+  localStorage.removeItem(SESSION_KEY);
 };

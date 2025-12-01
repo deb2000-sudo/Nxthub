@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { firebaseDepartmentsService } from '../services/firebaseService';
 import { Department } from '../types';
-import { Upload, Plus, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, Building2 } from 'lucide-react';
+import { Upload, Plus, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, Building2, Pencil, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { USE_MOCK_DATA } from '../config/firebase';
 
@@ -21,6 +21,9 @@ const DepartmentManagement: React.FC = () => {
   // Modal States
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
+  const [isEditDeptModalOpen, setIsEditDeptModalOpen] = useState(false);
+  const [editDeptName, setEditDeptName] = useState('');
+  const [editDeptHod, setEditDeptHod] = useState('');
 
   useEffect(() => {
     fetchDepartments();
@@ -93,6 +96,37 @@ const DepartmentManagement: React.FC = () => {
       setError('Failed to delete department: ' + err.message);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const openEditDeptModal = (dept: Department) => {
+    setSelectedDept(dept);
+    setEditDeptName(dept.name);
+    setEditDeptHod(dept.hodName);
+    setIsEditDeptModalOpen(true);
+  };
+
+  const handleUpdateDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDept) return;
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+        await firebaseDepartmentsService.updateDepartment(selectedDept.id, {
+            name: editDeptName,
+            hodName: editDeptHod
+        });
+        setSuccess('Department updated successfully');
+        setIsEditDeptModalOpen(false);
+        setSelectedDept(null);
+        fetchDepartments();
+    } catch (err: any) {
+        setError('Failed to update department: ' + err.message);
+    } finally {
+        setActionLoading(false);
     }
   };
 
@@ -315,13 +349,22 @@ const DepartmentManagement: React.FC = () => {
                         {dept.hodName}
                     </td>
                     <td className="p-4 text-right">
-                        <button 
-                            onClick={() => openDeleteDeptModal(dept)}
-                            className="p-2 hover:bg-dark-600 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
-                            title="Delete Department"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                            <button 
+                                onClick={() => openEditDeptModal(dept)}
+                                className="p-2 hover:bg-dark-600 rounded-lg text-gray-400 hover:text-primary-400 transition-colors"
+                                title="Edit Department"
+                            >
+                                <Pencil size={16} />
+                            </button>
+                            <button 
+                                onClick={() => openDeleteDeptModal(dept)}
+                                className="p-2 hover:bg-dark-600 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
+                                title="Delete Department"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
                     </td>
                     </tr>
                 ))
@@ -330,6 +373,61 @@ const DepartmentManagement: React.FC = () => {
             </table>
         </div>
         </div>
+
+        {/* Edit Department Modal */}
+        {isEditDeptModalOpen && selectedDept && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                <div className="bg-dark-800 rounded-xl border border-dark-700 w-full max-w-md p-6 relative animate-in fade-in zoom-in duration-200 shadow-2xl">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white">Edit Department</h3>
+                        <button onClick={() => setIsEditDeptModalOpen(false)} className="text-gray-400 hover:text-white">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    
+                    <form onSubmit={handleUpdateDepartment} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Department Name</label>
+                            <input
+                                type="text"
+                                value={editDeptName}
+                                onChange={(e) => setEditDeptName(e.target.value)}
+                                className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">HOD Name</label>
+                            <input
+                                type="text"
+                                value={editDeptHod}
+                                onChange={(e) => setEditDeptHod(e.target.value)}
+                                className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                                required
+                            />
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsEditDeptModalOpen(false)}
+                                className="flex-1 px-4 py-2 rounded-lg border border-dark-600 text-gray-300 hover:bg-dark-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={actionLoading}
+                                className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {actionLoading ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
 
         {/* Delete Department Confirmation Modal */}
         {isDeleteDeptModalOpen && selectedDept && (

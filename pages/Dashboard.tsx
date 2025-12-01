@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
-import { useLocation } from 'react-router-dom';
 import { Users, Megaphone, CheckCircle2, Loader2 } from 'lucide-react';
 import { CampaignStatus } from '../types';
 import { useCampaigns, useInfluencers } from '../hooks/useDataService';
+import { getSession } from '../services/authService';
+import { MOCK_USERS } from '../constants';
 
 const Dashboard: React.FC = () => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const role = params.get('role');
-  const dept = params.get('department');
+  const sessionUser = getSession() || MOCK_USERS[0];
+  const role = sessionUser.role;
+  const dept = sessionUser.department;
 
   // Load data from service (supports both Firebase and localStorage)
   const { campaigns: allCampaigns, loading: campaignsLoading } = useCampaigns();

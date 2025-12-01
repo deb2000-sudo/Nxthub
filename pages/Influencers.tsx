@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { useLocation } from 'react-router-dom';
 import { Influencer, Department } from '../types';
 import { dataService } from '../services/dataService';
 import { firebaseDepartmentsService } from '../services/firebaseService';
+import { getSession } from '../services/authService';
+import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
 import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar } from 'lucide-react';
 
@@ -147,6 +148,14 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       const upperValue = value.toUpperCase().slice(0, 10);
       setFormData(prev => ({ ...prev, [field]: upperValue }));
       return;
+    }
+
+    if (field === 'lastPricePaid') {
+        // Only allow positive integers
+        if (value === '' || /^\d+$/.test(value)) {
+             setFormData(prev => ({ ...prev, [field]: value }));
+        }
+        return;
     }
 
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -542,7 +551,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Last Price Paid (₹) excluding taxes</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.lastPricePaid}
                       onChange={(e) => handleInputChange('lastPricePaid', e.target.value)}
                       placeholder="400000" 
@@ -694,10 +703,9 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClo
 
 // --- Main Page Component ---
 const Influencers: React.FC = () => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const currentUserEmail = params.get('email');
-  const currentUserRole = params.get('role');
+  const sessionUser = getSession() || MOCK_USERS[0];
+  const currentUserEmail = sessionUser.email;
+  const currentUserRole = sessionUser.role;
 
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);

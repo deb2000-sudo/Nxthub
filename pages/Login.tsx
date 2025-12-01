@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
+import { login, saveSession } from '../services/authService';
 import { Megaphone, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -19,18 +19,13 @@ const Login: React.FC = () => {
       const result = await login(email, password);
 
       if (result.success && result.user) {
-        const { role, department, email: userEmail } = result.user;
-
-        if (role === 'super_admin' || role === 'admin') {
+        saveSession(result.user);
+        
+        if (result.user.role === 'super_admin' || result.user.role === 'admin') {
           navigate('/super-admin');
-          return;
+        } else {
+          navigate('/dashboard');
         }
-
-        // Requirement 2: Pass department as URL parameter
-        // Ensure department is encoded properly if it exists
-        const deptParam = department ? `&department=${encodeURIComponent(department)}` : '';
-        // Pass email to track ownership
-        navigate(`/dashboard?role=${role}${deptParam}&email=${encodeURIComponent(userEmail)}`);
       } else {
         setError(result.message || 'Login failed');
       }

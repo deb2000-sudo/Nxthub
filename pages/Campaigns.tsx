@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Campaign, CampaignStatus, Department } from '../types';
 import { dataService } from '../services/dataService';
 import { firebaseDepartmentsService } from '../services/firebaseService';
+import { getSession } from '../services/authService';
+import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
 import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil } from 'lucide-react';
 
 const Campaigns: React.FC = () => {
-  const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const role = params.get('role');
-  const userDept = params.get('department');
-  const currentUserEmail = params.get('email');
+  const sessionUser = getSession() || MOCK_USERS[0];
+  const role = sessionUser.role;
+  const userDept = sessionUser.department;
+  const currentUserEmail = sessionUser.email;
 
   // Initialize state from dataService (async loading)
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -237,11 +237,11 @@ const Campaigns: React.FC = () => {
                             <Clock size={12} /> Timeline
                         </h3>
                         <div className="text-sm text-gray-200">
-                            Start: <span className="text-white font-medium">{campaign.startDate}</span>
+                            Start: <span className="text-white font-medium">{new Date(campaign.startDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                         </div>
                         {campaign.endDate && (
                             <div className="text-sm text-gray-200 mt-1">
-                                End: <span className="text-white font-medium">{campaign.endDate}</span>
+                                End: <span className="text-white font-medium">{new Date(campaign.endDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                             </div>
                         )}
                     </div>
@@ -456,10 +456,16 @@ const Campaigns: React.FC = () => {
             <div>
                <label className="block text-sm font-medium text-gray-300 mb-1.5">Amount (₹)</label>
                <input 
-                 type="number" 
+                 type="text" 
                  required
                  value={formData.amount}
-                 onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                 onChange={(e) => {
+                    const val = e.target.value;
+                    // Only allow positive integers
+                    if (val === '' || /^\d+$/.test(val)) {
+                        setFormData({...formData, amount: val});
+                    }
+                 }}
                  placeholder="400000" 
                  className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-all text-sm placeholder-gray-600" 
                />
@@ -733,7 +739,6 @@ const Campaigns: React.FC = () => {
                       </div>
                       
                       <h3 className="text-lg font-bold text-white mb-1 truncate">{campaign.name}</h3>
-                      <p className="text-gray-500 text-xs mb-4">ID: {campaign.id}</p>
                       
                       <div className="flex items-center justify-between mt-auto">
                           <div className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(campaign.status)}`}>
@@ -813,7 +818,7 @@ const Campaigns: React.FC = () => {
                         <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-sm text-gray-400">
                             <Calendar size={14} />
-                            <span>{campaign.startDate}</span>
+                            <span>{new Date(campaign.startDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                         </div>
                         </td>
                         <td className="px-6 py-4">
