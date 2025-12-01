@@ -1,30 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { firebaseUsersService } from '../services/firebaseService';
-import { User, Role } from '../types';
-import { Upload, Plus, Users, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, RefreshCw, Pencil, X } from 'lucide-react';
+import { firebaseUsersService, firebaseDepartmentsService } from '../services/firebaseService';
+import { User, Role, Department } from '../types';
+import { Upload, Plus, Users, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, RefreshCw, Pencil, X, Building2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { USE_MOCK_DATA } from '../config/firebase';
 
 const SuperAdminPortal: React.FC = () => {
+  // User State
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Department State (for dropdowns)
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [deptLoading, setDeptLoading] = useState(false);
+
   // Modal States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Form State
+  // User Form State
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<Role>('executive');
   const [newUserDepartment, setNewUserDepartment] = useState('');
 
   useEffect(() => {
+    fetchDepartments(); // Always fetch departments for dropdowns
     fetchUsers();
   }, []);
 
@@ -41,24 +47,16 @@ const SuperAdminPortal: React.FC = () => {
     }
   };
 
-  const handleInitializeDB = async () => {
-    if (USE_MOCK_DATA) {
-      setError('Cannot initialize database in Mock Data mode.');
-      return;
-    }
-    
-    setActionLoading(true);
-    setError('');
-    setSuccess('');
-    
+  const fetchDepartments = async () => {
     try {
-      await firebaseUsersService.initializeWithMockData();
-      setSuccess('Database initialized with default users!');
-      fetchUsers();
-    } catch (err: any) {
-      setError('Failed to initialize DB: ' + err.message);
+      setDeptLoading(true);
+      const fetchedDepts = await firebaseDepartmentsService.getDepartments();
+      setDepartments(fetchedDepts);
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+      setError('Failed to load departments');
     } finally {
-      setActionLoading(false);
+      setDeptLoading(false);
     }
   };
 
@@ -71,6 +69,8 @@ const SuperAdminPortal: React.FC = () => {
     setIsEditModalOpen(false);
     setIsDeleteModalOpen(false);
   };
+
+  // --- User Management Handlers ---
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +135,7 @@ const SuperAdminPortal: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUserFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -191,6 +191,8 @@ const SuperAdminPortal: React.FC = () => {
     }
   };
 
+
+
   return (
     <Layout title="Admin Portal" role="super_admin">
       <div className="space-y-6">
@@ -205,149 +207,31 @@ const SuperAdminPortal: React.FC = () => {
               {USE_MOCK_DATA ? 'Mock Mode' : 'Connected'}
             </p>
           </div>
+          
           <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-400">Total Users</h3>
-              <Users className="text-primary-500" size={24} />
+            <h3 className="text-gray-400">Total Users</h3>
+            <Users className="text-primary-500" size={24} />
             </div>
             <p className="text-3xl font-bold text-white">{users.length}</p>
           </div>
           <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-400">Managers</h3>
-              <Users className="text-emerald-500" size={24} />
+            <h3 className="text-gray-400">Managers</h3>
+            <Users className="text-emerald-500" size={24} />
             </div>
             <p className="text-3xl font-bold text-white">
-              {users.filter(u => u.role === 'manager').length}
+            {users.filter(u => u.role === 'manager').length}
             </p>
           </div>
           <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-gray-400">Executives</h3>
-              <Users className="text-blue-500" size={24} />
+            <h3 className="text-gray-400">Executives</h3>
+            <Users className="text-blue-500" size={24} />
             </div>
             <p className="text-3xl font-bold text-white">
-              {users.filter(u => u.role === 'executive').length}
+            {users.filter(u => u.role === 'executive').length}
             </p>
-          </div>
-        </div>
-
-        {/* Actions Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Add Single User */}
-          <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <Plus size={20} className="text-primary-500" />
-              Add New User
-            </h2>
-            <form onSubmit={handleAddUser} className="space-y-4" autoComplete="off">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
-                  placeholder="user@example.com"
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
-                <input
-                  type="password"
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                  className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
-                  placeholder="Password"
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Role</label>
-                <select
-                  value={newUserRole}
-                  onChange={(e) => setNewUserRole(e.target.value as Role)}
-                  className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
-                >
-                  <option value="executive">Executive</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              
-              {(newUserRole === 'manager' || newUserRole === 'executive') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Department</label>
-                  <select
-                    value={newUserDepartment}
-                    onChange={(e) => setNewUserDepartment(e.target.value)}
-                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
-                    required
-                  >
-                    <option value="" disabled>Select Department</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Sales">Sales</option>
-                    <option value="HR">HR</option>
-                    <option value="Product">Product</option>
-                    <option value="Operations">Operations</option>
-                  </select>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
-                Add User
-              </button>
-            </form>
-          </div>
-
-          {/* Bulk Upload */}
-          <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <FileSpreadsheet size={20} className="text-emerald-500" />
-              Bulk Upload
-            </h2>
-            <div className="border-2 border-dashed border-dark-600 rounded-xl p-8 text-center hover:border-primary-500 transition-colors">
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-                disabled={actionLoading}
-              />
-              <label
-                htmlFor="file-upload"
-                className="cursor-pointer flex flex-col items-center gap-4"
-              >
-                <div className="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center">
-                  {actionLoading ? (
-                    <Loader2 className="animate-spin text-primary-500" size={32} />
-                  ) : (
-                    <Upload className="text-gray-400" size={32} />
-                  )}
-                </div>
-                <div>
-                  <p className="text-white font-medium">Click to upload sheet</p>
-                  <p className="text-sm text-gray-500 mt-1">Supports .xlsx, .csv</p>
-                </div>
-              </label>
-            </div>
-            <div className="mt-4 p-4 bg-dark-900 rounded-lg text-sm text-gray-400">
-              <p className="font-medium text-gray-300 mb-2">Expected Format:</p>
-              <div className="grid grid-cols-3 gap-2 font-mono text-xs">
-                <div className="bg-dark-800 p-2 rounded">email</div>
-                <div className="bg-dark-800 p-2 rounded">password</div>
-                <div className="bg-dark-800 p-2 rounded">role</div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -365,87 +249,206 @@ const SuperAdminPortal: React.FC = () => {
           </div>
         )}
 
+        {/* Content Area */}
+        {/* User Actions Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Add Single User */}
+        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Plus size={20} className="text-primary-500" />
+            Add New User
+            </h2>
+            <form onSubmit={handleAddUser} className="space-y-4" autoComplete="off">
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                <input
+                type="email"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                placeholder="user@example.com"
+                required
+                autoComplete="new-password"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                <input
+                type="password"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                placeholder="Password"
+                required
+                autoComplete="new-password"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                <select
+                value={newUserRole}
+                onChange={(e) => setNewUserRole(e.target.value as Role)}
+                className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                >
+                <option value="executive">Executive</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+                </select>
+            </div>
+            
+            {(newUserRole === 'manager' || newUserRole === 'executive') && (
+                <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Department</label>
+                <select
+                    value={newUserDepartment}
+                    onChange={(e) => setNewUserDepartment(e.target.value)}
+                    className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
+                    required
+                >
+                    <option value="" disabled>Select Department</option>
+                    {departments.map(dept => (
+                        <option key={dept.id} value={dept.name}>{dept.name}</option>
+                    ))}
+                </select>
+                </div>
+            )}
+
+            <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+                {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
+                Add User
+            </button>
+            </form>
+        </div>
+
+        {/* Bulk Upload Users */}
+        <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <FileSpreadsheet size={20} className="text-emerald-500" />
+            Bulk Upload Users
+            </h2>
+            <div className="border-2 border-dashed border-dark-600 rounded-xl p-8 text-center hover:border-primary-500 transition-colors">
+            <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleUserFileUpload}
+                className="hidden"
+                id="user-file-upload"
+                disabled={actionLoading}
+            />
+            <label
+                htmlFor="user-file-upload"
+                className="cursor-pointer flex flex-col items-center gap-4"
+            >
+                <div className="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center">
+                {actionLoading ? (
+                    <Loader2 className="animate-spin text-primary-500" size={32} />
+                ) : (
+                    <Upload className="text-gray-400" size={32} />
+                )}
+                </div>
+                <div>
+                <p className="text-white font-medium">Click to upload sheet</p>
+                <p className="text-sm text-gray-500 mt-1">Supports .xlsx, .csv</p>
+                </div>
+            </label>
+            </div>
+            <div className="mt-4 p-4 bg-dark-900 rounded-lg text-sm text-gray-400">
+            <p className="font-medium text-gray-300 mb-2">Expected Format:</p>
+            <div className="grid grid-cols-4 gap-2 font-mono text-xs">
+                <div className="bg-dark-800 p-2 rounded">email</div>
+                <div className="bg-dark-800 p-2 rounded">password</div>
+                <div className="bg-dark-800 p-2 rounded">role</div>
+                <div className="bg-dark-800 p-2 rounded">department</div>
+            </div>
+            </div>
+        </div>
+        </div>
+
         {/* Users List */}
         <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden">
-          <div className="p-6 border-b border-dark-700">
+        <div className="p-6 border-b border-dark-700">
             <h2 className="text-xl font-bold text-white">Registered Users</h2>
-          </div>
-          <div className="overflow-x-auto">
+        </div>
+        <div className="overflow-x-auto">
             <table className="w-full text-left">
-              <thead>
+            <thead>
                 <tr className="bg-dark-900 text-gray-400 text-sm">
-                  <th className="p-4 font-medium">User</th>
-                  <th className="p-4 font-medium">Role</th>
-                  <th className="p-4 font-medium">Department</th>
-                  <th className="p-4 font-medium text-right">Actions</th>
+                <th className="p-4 font-medium">User</th>
+                <th className="p-4 font-medium">Role</th>
+                <th className="p-4 font-medium">Department</th>
+                <th className="p-4 font-medium text-right">Actions</th>
                 </tr>
-              </thead>
-              <tbody>
+            </thead>
+            <tbody>
                 {loading ? (
-                  <tr>
+                <tr>
                     <td colSpan={4} className="p-8 text-center text-gray-400">
-                      <Loader2 className="animate-spin mx-auto mb-2" size={24} />
-                      Loading users...
+                    <Loader2 className="animate-spin mx-auto mb-2" size={24} />
+                    Loading users...
                     </td>
-                  </tr>
+                </tr>
                 ) : users.length === 0 ? (
-                  <tr>
+                <tr>
                     <td colSpan={4} className="p-8 text-center text-gray-400">
-                      No users found. Initialize DB or add a user.
+                    No users found. Initialize DB or add a user.
                     </td>
-                  </tr>
+                </tr>
                 ) : (
-                  users.map((user) => (
+                users.map((user) => (
                     <tr key={user.id} className="border-b border-dark-700 hover:bg-dark-750 transition-colors">
-                      <td className="p-4">
+                    <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img
+                        <img
                             src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
                             alt={user.name}
                             className="w-8 h-8 rounded-full"
-                          />
-                          <div>
+                        />
+                        <div>
                             <p className="text-white font-medium">{user.name}</p>
                             <p className="text-sm text-gray-400">{user.email}</p>
-                          </div>
                         </div>
-                      </td>
-                      <td className="p-4">
+                        </div>
+                    </td>
+                    <td className="p-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'super_admin' || user.role === 'admin' ? 'bg-purple-500/10 text-purple-400' :
-                          user.role === 'manager' ? 'bg-emerald-500/10 text-emerald-400' :
-                          'bg-blue-500/10 text-blue-400'
+                        user.role === 'super_admin' || user.role === 'admin' ? 'bg-purple-500/10 text-purple-400' :
+                        user.role === 'manager' ? 'bg-emerald-500/10 text-emerald-400' :
+                        'bg-blue-500/10 text-blue-400'
                         }`}>
-                          {user.role.replace('_', ' ').toUpperCase()}
+                        {user.role.replace('_', ' ').toUpperCase()}
                         </span>
-                      </td>
-                      <td className="p-4 text-gray-300">
+                    </td>
+                    <td className="p-4 text-gray-300">
                         {user.department || '-'}
-                      </td>
-                      <td className="p-4 text-right">
+                    </td>
+                    <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button 
+                        <button 
                             onClick={() => openEditModal(user)}
                             className="p-2 hover:bg-dark-600 rounded-lg text-gray-400 hover:text-primary-400 transition-colors"
                             title="Edit User"
-                          >
+                        >
                             <Pencil size={16} />
-                          </button>
-                          <button 
+                        </button>
+                        <button 
                             onClick={() => openDeleteModal(user)}
                             className="p-2 hover:bg-dark-600 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
                             title="Delete User"
-                          >
+                        >
                             <Trash2 size={16} />
-                          </button>
+                        </button>
                         </div>
-                      </td>
+                    </td>
                     </tr>
-                  ))
+                ))
                 )}
-              </tbody>
+            </tbody>
             </table>
-          </div>
+        </div>
         </div>
       </div>
 
@@ -508,11 +511,9 @@ const SuperAdminPortal: React.FC = () => {
                     required
                   >
                     <option value="" disabled>Select Department</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Sales">Sales</option>
-                    <option value="HR">HR</option>
-                    <option value="Product">Product</option>
-                    <option value="Operations">Operations</option>
+                    {departments.map(dept => (
+                        <option key={dept.id} value={dept.name}>{dept.name}</option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -538,7 +539,7 @@ const SuperAdminPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete User Confirmation Modal */}
       {isDeleteModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-dark-800 rounded-xl border border-dark-700 w-full max-w-sm p-6 relative animate-in fade-in zoom-in duration-200">
@@ -570,6 +571,8 @@ const SuperAdminPortal: React.FC = () => {
           </div>
         </div>
       )}
+
+
     </Layout>
   );
 };

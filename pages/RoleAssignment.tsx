@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useLocation } from 'react-router-dom';
-import { User, Role } from '../types';
-import { firebaseUsersService } from '../services/firebaseService';
+import { User, Role, Department } from '../types';
+import { firebaseUsersService, firebaseDepartmentsService } from '../services/firebaseService';
 import { USE_MOCK_DATA } from '../config/firebase';
 import { MOCK_USERS } from '../constants';
 import { Users, Shield, Building2, Crown, Search, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
@@ -13,6 +13,7 @@ const RoleAssignment: React.FC = () => {
   const currentUserEmail = params.get('email');
 
   const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -20,9 +21,14 @@ const RoleAssignment: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
-    const loadUsers = async () => {
+    const loadData = async () => {
       try {
         setIsLoading(true);
+        const [fetchedDepts] = await Promise.all([
+            firebaseDepartmentsService.getDepartments()
+        ]);
+        setDepartments(fetchedDepts);
+
         if (USE_MOCK_DATA) {
           setUsers(MOCK_USERS);
         } else {
@@ -30,14 +36,14 @@ const RoleAssignment: React.FC = () => {
           setUsers(allUsers);
         }
       } catch (error) {
-        console.error('Error loading users:', error);
-        setToast({ message: 'Failed to load users', type: 'error' });
+        console.error('Error loading data:', error);
+        setToast({ message: 'Failed to load data', type: 'error' });
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadUsers();
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -103,8 +109,6 @@ const RoleAssignment: React.FC = () => {
     }
   };
 
-  const departments = ['Marketing', 'Sales', 'HR', 'Product', 'Operations', 'Administration'];
-
   // Edit Modal Component
   const EditRoleModal = () => {
     if (!editingUser) return null;
@@ -164,7 +168,7 @@ const RoleAssignment: React.FC = () => {
                 >
                   <option value="">Select Department</option>
                   {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                    <option key={dept.id} value={dept.name}>{dept.name}</option>
                   ))}
                 </select>
               </div>
@@ -180,7 +184,7 @@ const RoleAssignment: React.FC = () => {
                 >
                   <option value="">None</option>
                   {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                    <option key={dept.id} value={dept.name}>{dept.name}</option>
                   ))}
                 </select>
               </div>

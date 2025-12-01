@@ -10,6 +10,12 @@ export interface User {
   avatar: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  hodName: string;
+}
+
 export interface Influencer {
   id: string;
   name: string;

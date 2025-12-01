@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useLocation } from 'react-router-dom';
-import { Influencer } from '../types';
+import { Influencer, Department } from '../types';
 import { dataService } from '../services/dataService';
+import { firebaseDepartmentsService } from '../services/firebaseService';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
 import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar } from 'lucide-react';
 
@@ -66,9 +67,10 @@ interface FormModalProps {
   editingInfluencer: Influencer | null;
   currentUserEmail: string | null;
   currentUserRole: string | null;
+  departments: Department[];
 }
 
-const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubmit, onDelete, editingInfluencer, currentUserEmail, currentUserRole }) => {
+const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubmit, onDelete, editingInfluencer, currentUserEmail, currentUserRole, departments }) => {
   if (!isOpen) return null;
 
   const isEditMode = !!editingInfluencer;
@@ -115,7 +117,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     
     category: editingInfluencer?.category || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
-    lastPromoBy: editingInfluencer?.lastPromoBy || 'Marketing',
+    lastPromoBy: editingInfluencer?.lastPromoBy || '',
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
     lastPricePaid: editingInfluencer?.lastPricePaid?.toString() || ''
   });
@@ -246,13 +248,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     { value: 'Entertainment', label: 'Entertainment' },
   ];
 
-  const deptOptions: Option[] = [
-    { value: 'Marketing', label: 'Marketing' },
-    { value: 'Sales', label: 'Sales' },
-    { value: 'HR', label: 'HR' },
-    { value: 'Product', label: 'Product' },
-    { value: 'Operations', label: 'Operations' },
-  ];
+  const deptOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
 
   const countryOptions: Option[] = [
     { value: '+91', label: 'India (+91)' },
@@ -717,21 +713,26 @@ const Influencers: React.FC = () => {
   
   // Load initial influencers (async)
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    const loadInfluencers = async () => {
+    const loadData = async () => {
       try {
         setIsLoading(true);
-        const data = await dataService.getInfluencers();
-        setInfluencers(data);
+        const [influencersData, departmentsData] = await Promise.all([
+            dataService.getInfluencers(),
+            firebaseDepartmentsService.getDepartments()
+        ]);
+        setInfluencers(influencersData);
+        setDepartments(departmentsData);
       } catch (error) {
-        console.error('Error loading influencers:', error);
+        console.error('Error loading data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    loadInfluencers();
+    loadData();
   }, []);
 
   // Derived state for Filtering
@@ -1082,6 +1083,7 @@ const Influencers: React.FC = () => {
         editingInfluencer={editingInfluencer}
         currentUserEmail={currentUserEmail}
         currentUserRole={currentUserRole}
+        departments={departments}
       />
       
       <DeleteConfirmationModal 
