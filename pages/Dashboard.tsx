@@ -144,7 +144,9 @@ const Dashboard: React.FC = () => {
                                     {campaign.department}
                                 </span>
                             </td>
-                            <td className="px-6 py-4 text-gray-400">{campaign.startDate}</td>
+                            <td className="px-6 py-4 text-gray-400">
+                                {new Date(campaign.startDate).toLocaleDateString('en-GB').split('/').join('-')}
+                            </td>
                             <td className="px-6 py-4">
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(campaign.status)}`}>
                                     {campaign.status}
