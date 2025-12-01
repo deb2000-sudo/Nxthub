@@ -351,6 +351,18 @@ export const firebaseDepartmentsService = {
     }
   },
 
+  async updateDepartment(id: string, updates: Partial<Department>): Promise<void> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const deptRef = doc(db, COLLECTIONS.DEPARTMENTS, id);
+      await updateDoc(deptRef, updates);
+    } catch (error) {
+      console.error('Error updating department:', error);
+      throw error;
+    }
+  },
+
   async bulkAddDepartments(departments: Omit<Department, 'id'>[]): Promise<void> {
     if (!db) throw new Error('Firestore not initialized');
     

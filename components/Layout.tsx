@@ -3,6 +3,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Megaphone, MessageSquare, LogOut, Search, Shield, Menu, X, Building2 } from 'lucide-react';
 import { MOCK_USERS } from '../constants';
 import { User, Role } from '../types';
+import { getSession, clearSession } from '../services/authService';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,70 +15,31 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const params = new URLSearchParams(location.search);
   
-  const currentRole = (propRole || params.get('role')) as Role | null;
-  const currentDept = params.get('department');
-  const currentEmail = params.get('email');
+  const sessionUser = getSession();
   
-  // Find current user based on params to display in sidebar (Mocking session)
-  let currentUser: User | undefined;
-
-  if (currentEmail) {
-      currentUser = MOCK_USERS.find(u => u.email === currentEmail);
-      // If not in mock users but we have email and role, create dynamic user
-      if (!currentUser && currentRole) {
-          currentUser = {
-            id: 'dynamic-user',
-            name: currentEmail.split('@')[0],
-            email: currentEmail,
-            role: currentRole,
-            department: currentDept || undefined,
-            avatar: `https://ui-avatars.com/api/?name=${currentEmail}&background=random`
-          };
-      }
-  } else {
-      // Legacy fallback: try to match by role/dept
-      currentUser = MOCK_USERS.find(u => 
-        u.role === currentRole && (u.role === 'executive' || u.department === currentDept)
-      );
-  }
-
-  // Handle Super Admin Case
-  if (currentRole === 'super_admin') {
-    currentUser = {
-      id: 'super-admin-001',
-      name: 'Super Admin',
-      email: 'admin@brandnxtwave.co.in',
-      role: 'super_admin',
-      avatar: 'https://ui-avatars.com/api/?name=Super+Admin&background=0D8ABC&color=fff'
-    };
-  }
-
-  // Fallback
-  if (!currentUser) {
-    currentUser = MOCK_USERS[0];
-  }
+  // Use session user or fallback to mock user if not logged in (dev mode)
+  const currentUser = sessionUser || MOCK_USERS[0];
+  
+  // Allow prop override for role (e.g. SuperAdminPortal forcing a view)
+  const currentRole = (propRole || currentUser.role) as Role;
+  const currentDept = currentUser.department;
 
   const handleLogout = () => {
+    clearSession();
     navigate('/');
   };
 
   const handleLogoClick = () => {
-    // Navigate to dashboard keeping the session params
-    const emailParam = currentEmail ? `&email=${encodeURIComponent(currentEmail)}` : '';
-    navigate(`/dashboard?role=${currentRole}&department=${currentDept}${emailParam}`);
+    navigate('/dashboard');
   };
 
   const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
-    // preserve params
-    const emailParam = currentEmail ? `&email=${encodeURIComponent(currentEmail)}` : '';
-    const destination = `${to}?role=${currentRole}&department=${currentDept}${emailParam}`;
     const isActive = location.pathname === to;
 
     return (
       <Link
-        to={destination}
+        to={to}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
           isActive 
             ? 'bg-primary-600 text-white' 
@@ -182,16 +144,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
             </h2>
             <div className="flex items-center gap-4">
                {/* Placeholders for top header actions */}
-               {location.pathname !== '/super-admin' && location.pathname !== '/department-management' && (
-                 <div className="relative hidden md:block">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                    <input 
-                      type="text" 
-                      placeholder="Search..." 
-                      className="bg-dark-900 border border-dark-700 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:border-primary-500 w-64 text-slate-200 placeholder-gray-600"
-                    />
-                 </div>
-               )}
             </div>
          </div>
 
