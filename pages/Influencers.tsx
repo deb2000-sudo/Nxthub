@@ -621,6 +621,11 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClo
           <span className="bg-dark-800 text-gray-300 px-4 py-1.5 rounded-full text-sm font-medium border border-dark-700 capitalize">
               {influencer.category}
           </span>
+          {influencer.language && (
+              <span className="bg-dark-800 text-gray-300 px-4 py-1.5 rounded-full text-sm font-medium border border-dark-700 capitalize">
+                  {influencer.language}
+              </span>
+          )}
           {influencer.department && (
               <span className="bg-dark-800 text-gray-300 px-4 py-1.5 rounded-full text-sm font-medium border border-dark-700 capitalize">
                   {influencer.department}
@@ -655,7 +660,10 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClo
               Last Price Paid: <span className="text-white">₹{influencer.lastPricePaid?.toLocaleString('en-IN') || 'N/A'}</span>
           </div>
           <div className="text-gray-300 font-medium">
-              Last Promo: <span className="text-white">{influencer.lastPromoDate || 'N/A'}</span>
+              Last Promotion Date: <span className="text-white">{influencer.lastPromoDate || 'N/A'}</span>
+          </div>
+          <div className="text-gray-300 font-medium">
+              Last Promotion By: <span className="text-white">{influencer.lastPromoBy || 'N/A'}</span>
           </div>
           <div className="text-gray-300 font-medium">
               Email: <span className="text-white">{influencer.email || '•••••••••'}</span>
