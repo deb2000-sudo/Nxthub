@@ -114,14 +114,39 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     platform2_username: editingInfluencer?.platforms?.youtube || '',
     
     category: editingInfluencer?.category || '',
-    department: editingInfluencer?.department || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
     lastPromoBy: editingInfluencer?.lastPromoBy || 'Marketing',
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
     lastPricePaid: editingInfluencer?.lastPricePaid?.toString() || ''
   });
 
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   const handleInputChange = (field: string, value: any) => {
+    // Clear error when user types
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+
+    // Input Masking / Immediate Validation
+    if (field === 'mobileNumber') {
+      // Only allow digits and max 10 chars
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, [field]: numericValue }));
+      return;
+    }
+
+    if (field === 'pan') {
+      // Uppercase and max 10 chars
+      const upperValue = value.toUpperCase().slice(0, 10);
+      setFormData(prev => ({ ...prev, [field]: upperValue }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -139,18 +164,41 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Strict validation for required fields
-    if (
-        !formData.fullName || 
-        !formData.platform1_username || 
-        (!isEditMode && !formData.pan) ||
-        !formData.email ||
-        !formData.mobileNumber ||
-        !formData.category ||
-        !formData.department ||
-        formData.languages.length === 0
-    ) {
-      alert("Please fill in all required fields marked with *.");
+    const newErrors: { [key: string]: string } = {};
+
+    // Required Fields Check
+    if (!formData.fullName) newErrors.fullName = "Full Name is required";
+    if (!formData.email) newErrors.email = "Email is required";
+    if (!formData.mobileNumber) newErrors.mobileNumber = "Mobile Number is required";
+    if (!isEditMode && !formData.pan) newErrors.pan = "PAN is required";
+    if (!formData.platform1_username) newErrors.platform1_username = "Username is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (formData.languages.length === 0) newErrors.languages = "At least one language is required";
+
+    // Mobile Validation
+    if (formData.mobileNumber && !/^\d{10}$/.test(formData.mobileNumber)) {
+        newErrors.mobileNumber = "Mobile number must be exactly 10 digits.";
+    }
+
+    // PAN Validation
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (formData.pan && !panRegex.test(formData.pan)) {
+        newErrors.pan = "Invalid PAN format (e.g., ABCDE1234F).";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      
+      // Scroll to first error
+      const firstErrorField = Object.keys(newErrors)[0];
+      const element = document.getElementById(`input-${firstErrorField}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Try to focus if it's an input
+        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+            (element as HTMLElement).focus();
+        }
+      }
       return;
     }
 
@@ -161,7 +209,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       name: formData.fullName,
       handle: formData.platform1_username.startsWith('@') ? formData.platform1_username : `@${formData.platform1_username}`,
       category: formData.category,
-      department: formData.department,
       avatar: isEditMode ? editingInfluencer.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=random`,
       email: formData.email,
       mobile: fullMobile,
@@ -230,6 +277,16 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
         className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-5xl flex flex-col max-h-[90vh] relative animate-in fade-in zoom-in duration-200 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
+        <style>{`
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover, 
+          input:-webkit-autofill:focus, 
+          input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #15171E inset !important;
+            -webkit-text-fill-color: white !important;
+            transition: background-color 5000s ease-in-out 0s;
+          }
+        `}</style>
         {/* Header - Fixed at top */}
         <div className="flex items-center justify-between p-6 border-b border-dark-700 flex-shrink-0 bg-dark-900 rounded-t-xl z-10">
            <div>
@@ -252,23 +309,26 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Full Name <span className="text-red-500">*</span></label>
                     <input 
+                      id="input-fullName"
                       type="text" 
-                      required
                       value={formData.fullName}
                       onChange={(e) => handleInputChange('fullName', e.target.value)}
                       placeholder="e.g., Jane Doe" 
-                      className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500" 
+                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 ${errors.fullName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
                     />
+                    {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
                  </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Email Address <span className="text-red-500">*</span></label>
                     <input 
+                      id="input-email"
                       type="email" 
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       placeholder="name@example.com" 
-                      className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500" 
+                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 ${errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
                     />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                  </div>
               </div>
 
@@ -286,24 +346,27 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                             />
                         </div>
                         <input 
+                        id="input-mobileNumber"
                         type="text" 
                         value={formData.mobileNumber}
                         onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
                         placeholder="9876543210" 
-                        className="flex-1 bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500" 
+                        className={`flex-1 bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 ${errors.mobileNumber ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
                         />
                     </div>
+                    {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
                  </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">PAN {isEditMode ? '' : <span className="text-red-500">*</span>}</label>
                     <input 
+                      id="input-pan"
                       type="text" 
-                      required={!isEditMode}
                       value={formData.pan}
                       onChange={(e) => handleInputChange('pan', e.target.value)}
                       placeholder={isEditMode ? "Hidden for security" : "ABCD1234E"}
-                      className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 uppercase" 
+                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 uppercase ${errors.pan ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
                     />
+                    {errors.pan && <p className="text-red-500 text-xs mt-1">{errors.pan}</p>}
                  </div>
               </div>
 
@@ -335,13 +398,14 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                     <div>
                        <label className="block text-sm font-medium text-gray-300 mb-2">Username <span className="text-red-500">*</span></label>
                        <input 
+                          id="input-platform1_username"
                           type="text" 
-                          required
                           value={formData.platform1_username}
                           onChange={(e) => handleInputChange('platform1_username', e.target.value)}
                           placeholder="@janedoe" 
-                          className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500" 
+                          className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 ${errors.platform1_username ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
                       />
+                      {errors.platform1_username && <p className="text-red-500 text-xs mt-1">{errors.platform1_username}</p>}
                     </div>
                  </div>
               </div>
@@ -381,12 +445,9 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                     </div>
                  </div>
               </div>
-
-              <div className="h-px bg-dark-700 my-2"></div>
-
               {/* Details Row 3 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <div>
+                 <div id="input-category">
                     <label className="block text-sm font-medium text-gray-300 mb-2">Category / Niche <span className="text-red-500">*</span></label>
                     <SearchableSelect 
                          options={categoryOptions}
@@ -394,23 +455,14 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                          onChange={(val) => handleInputChange('category', val)}
                          placeholder="Select Category"
                        />
-                 </div>
-
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Department <span className="text-red-500">*</span></label>
-                    <SearchableSelect 
-                         options={deptOptions}
-                         value={formData.department}
-                         onChange={(val) => handleInputChange('department', val)}
-                         placeholder="Select Department"
-                       />
+                    {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                  </div>
                  
                  {/* Language Multi-Select Dropdown with Search */}
-                 <div className="relative">
+                 <div className="relative" id="input-languages">
                     <label className="block text-sm font-medium text-gray-300 mb-2">Language <span className="text-red-500">*</span></label>
                     <div 
-                      className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white cursor-pointer flex justify-between items-center"
+                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white cursor-pointer flex justify-between items-center ${errors.languages ? 'border-red-500' : 'border-dark-700'}`}
                       onClick={() => {
                           setIsLangOpen(!isLangOpen);
                           setLangSearch('');
@@ -465,6 +517,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                     {isLangOpen && (
                        <div className="fixed inset-0 z-10" onClick={() => setIsLangOpen(false)}></div>
                     )}
+                    {errors.languages && <p className="text-red-500 text-xs mt-1">{errors.languages}</p>}
                  </div>
               </div>
 
