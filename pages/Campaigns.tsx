@@ -9,10 +9,10 @@ import SearchableSelect, { Option } from '../components/SearchableSelect';
 import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil } from 'lucide-react';
 
 const Campaigns: React.FC = () => {
-  const sessionUser = getSession() || MOCK_USERS[0];
-  const role = sessionUser.role;
-  const userDept = sessionUser.department;
-  const currentUserEmail = sessionUser.email;
+  const sessionUser = getSession();
+  const role = sessionUser?.role || '';
+  const userDept = sessionUser?.department;
+  const currentUserEmail = sessionUser?.email || '';
 
   // Initialize state from dataService (async loading)
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);

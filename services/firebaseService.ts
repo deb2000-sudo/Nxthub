@@ -15,7 +15,7 @@ import {
   DocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Campaign, Influencer, CampaignStatus, User, Role, Department } from '../types';
+import { Campaign, Influencer, CampaignStatus, User, Role, Department, AccessRequest, RequestStatus } from '../types';
 import { MOCK_CAMPAIGNS, MOCK_INFLUENCERS, MOCK_USERS } from '../constants';
 
 // Collection names
@@ -24,6 +24,7 @@ const COLLECTIONS = {
   INFLUENCERS: 'influencers',
   USERS: 'users',
   DEPARTMENTS: 'departments',
+  REQUESTS: 'access_requests',
 } as const;
 
 // Helper to convert Firestore timestamp to ISO string
@@ -576,6 +577,87 @@ export const firebaseUsersService = {
       throw error;
     }
   },
+};
+
+export const firebaseRequestsService = {
+  async addRequest(request: Omit<AccessRequest, 'id'>): Promise<AccessRequest> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.REQUESTS), {
+        ...request,
+        createdAt: Timestamp.now()
+      });
+      
+      return {
+        id: docRef.id,
+        ...request,
+        createdAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error adding request:', error);
+      throw error;
+    }
+  },
+
+  async getRequestsByDepartment(department: string): Promise<AccessRequest[]> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      // Note: Removed orderBy to avoid needing a composite index for now.
+      // Sorting will be done in memory if needed, or add index later.
+      const q = query(
+        collection(db, COLLECTIONS.REQUESTS), 
+        where('department', '==', department)
+      );
+      const snapshot = await getDocs(q);
+      
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: timestampToISO(doc.data().createdAt)
+      })) as AccessRequest[];
+
+      // Sort in memory
+      return requests.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      throw error;
+    }
+  },
+
+  async getRequestsByUser(userEmail: string): Promise<AccessRequest[]> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.REQUESTS), 
+        where('requesterEmail', '==', userEmail)
+      );
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: timestampToISO(doc.data().createdAt)
+      })) as AccessRequest[];
+    } catch (error) {
+      console.error('Error fetching user requests:', error);
+      throw error;
+    }
+  },
+
+  async updateRequestStatus(id: string, status: RequestStatus): Promise<void> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const reqRef = doc(db, COLLECTIONS.REQUESTS, id);
+      await updateDoc(reqRef, { status });
+    } catch (error) {
+      console.error('Error updating request status:', error);
+      throw error;
+    }
+  }
 };
 
 

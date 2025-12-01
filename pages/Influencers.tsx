@@ -2,11 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Influencer, Department } from '../types';
 import { dataService } from '../services/dataService';
-import { firebaseDepartmentsService } from '../services/firebaseService';
+import { firebaseDepartmentsService, firebaseRequestsService } from '../services/firebaseService';
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
-import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar } from 'lucide-react';
+import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock } from 'lucide-react';
 
 // --- Component: Delete Confirmation Modal ---
 interface DeleteModalProps {
@@ -598,9 +598,74 @@ interface DetailsModalProps {
   onClose: () => void;
   onEdit: (inf: Influencer) => void;
   showEditAction: boolean;
+  currentUserRole: string | null;
+  currentUserEmail: string | null;
+  currentUserDepartment?: string;
 }
 
-const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClose, onEdit, showEditAction }) => (
+const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ 
+  influencer, 
+  onClose, 
+  onEdit, 
+  showEditAction,
+  currentUserRole,
+  currentUserEmail,
+  currentUserDepartment
+}) => {
+  const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [isLoadingRequest, setIsLoadingRequest] = useState(false);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (currentUserRole === 'executive' && currentUserEmail) {
+        try {
+          const requests = await firebaseRequestsService.getRequestsByUser(currentUserEmail);
+          const request = requests.find(r => r.influencerId === influencer.id);
+          if (request) {
+            setRequestStatus(request.status);
+          }
+        } catch (error) {
+          console.error('Error checking access:', error);
+        }
+      }
+    };
+    checkAccess();
+  }, [currentUserRole, currentUserEmail, influencer.id]);
+
+  const handleRequestAccess = async () => {
+    // Request must go to the Executive's own department manager
+    if (!currentUserEmail) {
+      alert('User information missing. Cannot request access.');
+      return;
+    }
+
+    if (!currentUserDepartment) {
+      alert('You are not assigned to a department. Please contact your administrator to assign a department before requesting access.');
+      return;
+    }
+    
+    setIsLoadingRequest(true);
+    try {
+      await firebaseRequestsService.addRequest({
+        requesterId: currentUserEmail,
+        requesterEmail: currentUserEmail,
+        influencerId: influencer.id,
+        influencerName: influencer.name,
+        department: currentUserDepartment,
+        status: 'pending',
+      });
+      setRequestStatus('pending');
+    } catch (error) {
+      console.error('Error requesting access:', error);
+      alert('Failed to request access.');
+    } finally {
+      setIsLoadingRequest(false);
+    }
+  };
+
+  const showMobile = currentUserRole !== 'executive' || requestStatus === 'approved';
+
+  return (
   <div 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
@@ -677,8 +742,34 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClo
           <div className="text-gray-300 font-medium">
               Email: <span className="text-white">{influencer.email || '•••••••••'}</span>
           </div>
-          <div className="text-gray-300 font-medium">
-              Mobile: <span className="text-white">{influencer.mobile || '•••••••••'}</span>
+          <div className="text-gray-300 font-medium flex items-center gap-2 flex-wrap">
+              Mobile: 
+              {showMobile ? (
+                <span className="text-white">{influencer.mobile || '•••••••••'}</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500">••••••••••</span>
+                  {requestStatus === 'none' && (
+                     <button 
+                       onClick={handleRequestAccess} 
+                       disabled={isLoadingRequest} 
+                       className="flex items-center gap-1 px-2 py-1 rounded bg-primary-600/20 text-primary-500 text-xs hover:bg-primary-600/30 transition-colors disabled:opacity-50"
+                     >
+                       <Lock size={12} /> Request Access
+                     </button>
+                  )}
+                  {requestStatus === 'pending' && (
+                     <span className="text-yellow-500 flex items-center gap-1 text-xs bg-yellow-500/10 px-2 py-1 rounded">
+                       <Clock size={12} /> Pending Approval
+                     </span>
+                  )}
+                   {requestStatus === 'rejected' && (
+                     <span className="text-red-500 flex items-center gap-1 text-xs bg-red-500/10 px-2 py-1 rounded">
+                       Request Rejected
+                     </span>
+                  )}
+                </div>
+              )}
           </div>
           <div className="text-gray-300 font-medium">
               Added By: <span className="text-white text-xs">{influencer.createdBy || 'System'}</span>
@@ -699,13 +790,15 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({ influencer, onClo
       )}
     </div>
   </div>
-);
+  );
+};
 
 // --- Main Page Component ---
 const Influencers: React.FC = () => {
-  const sessionUser = getSession() || MOCK_USERS[0];
-  const currentUserEmail = sessionUser.email;
-  const currentUserRole = sessionUser.role;
+  const sessionUser = getSession();
+  const currentUserEmail = sessionUser?.email || '';
+  const currentUserRole = sessionUser?.role || '';
+  const currentUserDepartment = sessionUser?.department;
 
   const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -1088,6 +1181,9 @@ const Influencers: React.FC = () => {
             onClose={() => setSelectedInfluencer(null)}
             onEdit={handleEditClick}
             showEditAction={showEditActions} // Only show edit button in modal if in 'My' tab
+            currentUserRole={currentUserRole}
+            currentUserEmail={currentUserEmail}
+            currentUserDepartment={currentUserDepartment}
           />
       )}
 

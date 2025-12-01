@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Megaphone, MessageSquare, LogOut, Search, Shield, Menu, X, Building2 } from 'lucide-react';
-import { MOCK_USERS } from '../constants';
+import { LayoutDashboard, Users, Megaphone, MessageSquare, LogOut, Search, Shield, Menu, X, Building2, Clock } from 'lucide-react';
 import { User, Role } from '../types';
 import { getSession, clearSession } from '../services/authService';
 
@@ -17,9 +16,15 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const sessionUser = getSession();
+  const currentUser = sessionUser;
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
   
-  // Use session user or fallback to mock user if not logged in (dev mode)
-  const currentUser = sessionUser || MOCK_USERS[0];
+  if (!currentUser) return null;
   
   // Allow prop override for role (e.g. SuperAdminPortal forcing a view)
   const currentRole = (propRole || currentUser.role) as Role;
@@ -112,6 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
                 {currentRole === 'super_admin' && (
                   <NavItem to="/department-management" icon={Building2} label="Department Management" />
                 )}
+                <NavItem to="/requests" icon={Clock} label="Requests" />
               </>
             ) : (
               <>
@@ -119,6 +125,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
                 <NavItem to="/influencers" icon={Users} label="Influencers" />
                 <NavItem to="/campaigns" icon={Megaphone} label="Campaigns" />
                 <NavItem to="/messaging" icon={MessageSquare} label="Messaging" />
+                {currentRole === 'manager' && (
+                  <NavItem to="/requests" icon={Clock} label="Requests" />
+                )}
               </>
             )}
           </nav>

@@ -1,5 +1,18 @@
 export type Role = 'manager' | 'executive' | 'admin' | 'super_admin';
 export type CampaignStatus = 'Pending' | 'Approved' | 'Rejected' | 'Completed';
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AccessRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  requesterEmail: string;
+  influencerId: string;
+  influencerName: string;
+  department: string;
+  status: RequestStatus;
+  createdAt: string;
+}
 
 export interface User {
   id: string;
