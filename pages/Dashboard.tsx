@@ -7,9 +7,9 @@ import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 
 const Dashboard: React.FC = () => {
-  const sessionUser = getSession() || MOCK_USERS[0];
-  const role = sessionUser.role;
-  const dept = sessionUser.department;
+  const sessionUser = getSession();
+  const role = sessionUser?.role || '';
+  const dept = sessionUser?.department;
 
   // Load data from service (supports both Firebase and localStorage)
   const { campaigns: allCampaigns, loading: campaignsLoading } = useCampaigns();

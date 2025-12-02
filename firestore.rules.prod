@@ -25,6 +25,13 @@ service cloud.firestore {
                        (resource.data.department == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.department ||
                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'executive');
     }
+
+    // Access Requests collection
+    match /access_requests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
   }
 }
 
