@@ -73,12 +73,12 @@ const Login: React.FC = () => {
               <label className="block text-sm font-medium text-gray-400 mb-2">Password</label>
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
                 placeholder="Enter your password"
               />
-              <p className="text-xs text-gray-500 mt-1">Leave empty for mock data mode</p>
             </div>
 
             {error && (

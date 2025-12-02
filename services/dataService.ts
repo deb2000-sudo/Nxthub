@@ -55,6 +55,7 @@ const localStorageService = {
     const updated = campaigns.map(c => c.id === id ? { 
         ...c, 
         status: 'Completed' as CampaignStatus, 
+        endDate: date, // Set endDate when completing
         completionDate: date, 
         completionSummary: summary,
         lastUpdated: new Date().toISOString()

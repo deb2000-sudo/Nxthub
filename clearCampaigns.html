@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Firebase Campaigns</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #444;
+        }
+        h1 {
+            color: #3b82f6;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .success {
+            background: #10b981;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+        .error {
+            background: #ef4444;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+        .info {
+            background: #3b82f6;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        .count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Clear All Campaigns from Firebase</h1>
+        
+        <div class="info">
+            <strong>Warning:</strong> This will permanently delete all campaigns from your Firebase database. This action cannot be undone.
+        </div>
+        
+        <div class="count">
+            Total Campaigns: <span id="campaignCount">Loading...</span>
+        </div>
+        
+        <button id="clearBtn" onclick="clearAllCampaigns()">Delete All Campaigns</button>
+        <button id="refreshBtn" onclick="loadCount()" style="background: #3b82f6; margin-left: 10px;">Refresh Count</button>
+        
+        <div class="success" id="successMsg"></div>
+        <div class="error" id="errorMsg"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase configuration - UPDATE THESE WITH YOUR VALUES
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function loadCount() {
+            try {
+                const campaignsSnapshot = await getDocs(collection(db, 'campaigns'));
+                document.getElementById('campaignCount').textContent = campaignsSnapshot.size;
+            } catch (error) {
+                console.error('Error loading count:', error);
+                document.getElementById('campaignCount').textContent = 'Error loading';
+            }
+        }
+
+        async function clearAllCampaigns() {
+            if (!confirm('Are you sure you want to delete ALL campaigns? This cannot be undone!')) {
+                return;
+            }
+
+            const btn = document.getElementById('clearBtn');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+            
+            const successMsg = document.getElementById('successMsg');
+            const errorMsg = document.getElementById('errorMsg');
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+
+            try {
+                const campaignsSnapshot = await getDocs(collection(db, 'campaigns'));
+                const deletePromises = [];
+                
+                campaignsSnapshot.forEach((docSnapshot) => {
+                    deletePromises.push(deleteDoc(doc(db, 'campaigns', docSnapshot.id)));
+                });
+
+                await Promise.all(deletePromises);
+                
+                successMsg.textContent = `✅ Successfully deleted ${deletePromises.length} campaigns!`;
+                successMsg.style.display = 'block';
+                
+                await loadCount();
+            } catch (error) {
+                console.error('Error deleting campaigns:', error);
+                errorMsg.textContent = `❌ Error: ${error.message}`;
+                errorMsg.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Delete All Campaigns';
+            }
+        }
+
+        // Make functions global
+        window.clearAllCampaigns = clearAllCampaigns;
+        window.loadCount = loadCount;
+
+        // Load initial count
+        loadCount();
+    </script>
+</body>
+</html>

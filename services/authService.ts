@@ -4,9 +4,14 @@ import { User } from '../types';
 import { USE_MOCK_DATA, auth } from '../config/firebase';
 import { firebaseUsersService } from './firebaseService';
 
-export const login = async (email: string, password?: string): Promise<{ success: boolean; user?: User; message?: string }> => {
+export const login = async (email: string, password: string): Promise<{ success: boolean; user?: User; message?: string }> => {
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 800));
+
+  // Validate password is provided
+  if (!password) {
+    return { success: false, message: 'Password is required' };
+  }
 
   let firebaseAuthSuccess = false;
   let firebaseUserUid = '';
@@ -28,8 +33,9 @@ export const login = async (email: string, password?: string): Promise<{ success
   let user: User | null = null;
 
   if (USE_MOCK_DATA) {
-    // Use mock data from constants (no password required in mock mode)
+    // Use mock data from constants (password still required)
     user = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+    // In mock mode, we still validate that password was provided (already checked above)
   } else {
     // 3. Firestore Custom Auth (for users added via Super Admin Portal)
     if (!auth) {

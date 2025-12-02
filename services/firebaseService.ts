@@ -39,7 +39,8 @@ const timestampToISO = (timestamp: any): string => {
 };
 
 // Helper to convert ISO string to Firestore timestamp
-const isoToTimestamp = (isoString: string): Timestamp => {
+const isoToTimestamp = (isoString: string): Timestamp | null => {
+  if (!isoString || isoString === '') return null;
   return Timestamp.fromDate(new Date(isoString));
 };
 
@@ -101,12 +102,16 @@ export const firebaseCampaignsService = {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
-      const campaignData = {
+      const campaignData: any = {
         ...campaign,
         startDate: isoToTimestamp(campaign.startDate),
-        endDate: isoToTimestamp(campaign.endDate),
         lastUpdated: Timestamp.now(),
       };
+      
+      // Only add endDate if it exists
+      if (campaign.endDate) {
+        campaignData.endDate = isoToTimestamp(campaign.endDate);
+      }
       
       // Remove id from data (Firestore will generate it)
       const { id, ...dataWithoutId } = campaignData;
@@ -150,6 +155,7 @@ export const firebaseCampaignsService = {
       const campaignRef = doc(db, COLLECTIONS.CAMPAIGNS, id);
       await updateDoc(campaignRef, {
         status: 'Completed' as CampaignStatus,
+        endDate: isoToTimestamp(date), // Set endDate when completing
         completionDate: isoToTimestamp(date),
         completionSummary: summary,
         lastUpdated: Timestamp.now(),
