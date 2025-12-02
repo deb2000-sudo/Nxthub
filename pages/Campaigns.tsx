@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Campaign, CampaignStatus, Department } from '../types';
+import { Campaign, CampaignStatus, Department, Influencer } from '../types';
 import { dataService } from '../services/dataService';
 import { firebaseDepartmentsService } from '../services/firebaseService';
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
-import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil } from 'lucide-react';
+import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 
 const Campaigns: React.FC = () => {
   const sessionUser = getSession();
@@ -57,9 +57,19 @@ const Campaigns: React.FC = () => {
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isConfirmCompletionOpen, setIsConfirmCompletionOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null); // For details view
   const [campaignToComplete, setCampaignToComplete] = useState<Campaign | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  // Completion Form Data
+  const [compData, setCompData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    summary: ''
+  });
+  const [dateError, setDateError] = useState('');
 
   useEffect(() => {
     if (toast) {
@@ -123,11 +133,34 @@ const Campaigns: React.FC = () => {
   const initiateLogCompletion = (campaign: Campaign) => {
       if(canEditCampaign(campaign)) {
         setCampaignToComplete(campaign);
+        // Reset form data when opening modal
+        setCompData({ date: new Date().toISOString().split('T')[0], summary: '' });
+        setDateError('');
         setIsCompletionModalOpen(true);
       } else {
         setToast({ message: `Unauthorized: Read-only access.`, type: 'error' });
       }
   }
+
+  const handleDeleteRequest = (id: string) => {
+    setDeleteTargetId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTargetId) {
+      try {
+        const updatedList = await dataService.deleteCampaign(deleteTargetId);
+        setCampaigns(updatedList);
+        setIsDeleteModalOpen(false);
+        setDeleteTargetId(null);
+        setToast({ message: 'Campaign deleted successfully!', type: 'success' });
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        setToast({ message: 'Failed to delete campaign', type: 'error' });
+      }
+    }
+  };
 
   const getStatusColor = (status: CampaignStatus) => {
     switch (status) {
@@ -239,7 +272,7 @@ const Campaigns: React.FC = () => {
                         <div className="text-sm text-gray-200">
                             Start: <span className="text-white font-medium">{new Date(campaign.startDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                         </div>
-                        {campaign.endDate && (
+                        {campaign.status === 'Completed' && campaign.endDate && (
                             <div className="text-sm text-gray-200 mt-1">
                                 End: <span className="text-white font-medium">{new Date(campaign.endDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
                             </div>
@@ -308,7 +341,7 @@ const Campaigns: React.FC = () => {
                     Close
                  </button>
                  
-                 {editable && campaign.status !== 'Completed' && (
+                 {editable && campaign.status === 'Approved' && (
                      <button 
                         onClick={() => {
                             // Close details first then open completion modal
@@ -360,7 +393,7 @@ const Campaigns: React.FC = () => {
         status: editingCampaign ? editingCampaign.status : 'Pending',
         budget: Number(formData.amount),
         startDate: formData.date,
-        endDate: formData.date,
+        endDate: editingCampaign?.endDate || '', // Preserve existing endDate on edit, empty for new campaigns
         deliverables: formData.deliverables,
         createdBy: editingCampaign ? editingCampaign.createdBy : (currentUserEmail || undefined)
       };
@@ -512,96 +545,105 @@ const Campaigns: React.FC = () => {
     );
   };
 
-  // --- Modal: Completion Form ---
-  const CompletionModal = () => {
-    const [compData, setCompData] = useState({
-      date: new Date().toISOString().split('T')[0],
-      summary: ''
-    });
+  const handleConfirmAndComplete = async () => {
+      if (!campaignToComplete) return;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+      setIsConfirmCompletionOpen(false);
+
+      try {
+        const updatedList = await dataService.completeCampaign(campaignToComplete.id, compData.date, compData.summary);
+        setCampaigns(updatedList);
         
-        if (!campaignToComplete) return;
-
-        try {
-          const updatedList = await dataService.completeCampaign(campaignToComplete.id, compData.date, compData.summary);
-          setCampaigns(updatedList);
-          
-          // Update selected campaign details immediately if open
-          if (selectedCampaign && selectedCampaign.id === campaignToComplete.id) {
-              const updatedCampaign = updatedList.find(c => c.id === campaignToComplete.id);
-              if(updatedCampaign) setSelectedCampaign(updatedCampaign);
-          }
-
-          setToast({ message: "Campaign marked as Completed!", type: "success" });
-          setIsCompletionModalOpen(false);
-          setCampaignToComplete(null);
-        } catch (error) {
-          console.error('Error completing campaign:', error);
-          setToast({ message: "Failed to complete campaign", type: "error" });
+        // Update selected campaign details immediately if open
+        if (selectedCampaign && selectedCampaign.id === campaignToComplete.id) {
+            const updatedCampaign = updatedList.find(c => c.id === campaignToComplete.id);
+            if(updatedCampaign) setSelectedCampaign(updatedCampaign);
         }
-    };
 
+        setToast({ message: "Campaign marked as Completed!", type: "success" });
+        setCampaignToComplete(null);
+        // Reset form data
+        setCompData({ date: new Date().toISOString().split('T')[0], summary: '' });
+        setDateError('');
+      } catch (error) {
+        console.error('Error completing campaign:', error);
+        setToast({ message: "Failed to complete campaign", type: "error" });
+      }
+  };
+
+  // Handlers for Completion Modal
+  const handleCompletionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!campaignToComplete) return;
+
+    // Validate that completion date is not before start date
+    const startDate = new Date(campaignToComplete.startDate);
+    const endDate = new Date(compData.date);
+    
+    if (endDate < startDate) {
+      setToast({ message: 'Completion date cannot be before campaign start date', type: 'error' });
+      return;
+    }
+
+    // Show confirmation modal instead of directly completing
+    setIsCompletionModalOpen(false);
+    setIsConfirmCompletionOpen(true);
+  };
+
+  const handleCompletionClose = () => {
+    setIsCompletionModalOpen(false);
+    setCampaignToComplete(null);
+    setCompData({ date: new Date().toISOString().split('T')[0], summary: '' });
+    setDateError('');
+  };
+
+  // --- Modal: Confirm Completion ---
+  const ConfirmCompletionModal = () => {
     return (
+      <div 
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        onClick={() => {
+          setIsConfirmCompletionOpen(false);
+          setIsCompletionModalOpen(true); // Go back to form
+        }}
+      >
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setIsCompletionModalOpen(false)}
+          className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-md p-6 relative animate-in fade-in zoom-in duration-200 shadow-2xl border-l-4 border-l-emerald-500"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div 
-            className="bg-black border border-dark-700 rounded-xl w-full max-w-md relative animate-in fade-in zoom-in duration-200 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-             <div className="flex items-center justify-between p-6 pb-2 border-b border-dark-700/50">
-                 <div>
-                     <h2 className="text-xl font-bold text-white">Complete Campaign</h2>
-                     <p className="text-gray-400 text-xs mt-1">Finalize "{campaignToComplete?.name}"</p>
-                 </div>
-                 <button onClick={() => setIsCompletionModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
-                    <X size={20} />
-                 </button>
-             </div>
-
-             <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                
-                {/* Completion Date */}
-                <div>
-                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Completion Date</label>
-                   <div className="relative">
-                     <input 
-                         type="date" 
-                         required
-                         value={compData.date}
-                         onChange={(e) => setCompData({...compData, date: e.target.value})}
-                         className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600 transition-all text-sm [color-scheme:dark]" 
-                     />
-                     <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
-                   </div>
-                </div>
-
-                {/* Summary */}
-                <div>
-                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Summary / Feedback</label>
-                   <textarea
-                     rows={4}
-                     required
-                     value={compData.summary}
-                     onChange={(e) => setCompData({...compData, summary: e.target.value})}
-                     placeholder="How did the campaign perform? Any key takeaways?"
-                     className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600 resize-none text-sm placeholder-gray-600"
-                   />
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-4">
-                   <button type="button" onClick={() => setIsCompletionModalOpen(false)} className="px-4 py-2 rounded-lg text-white hover:bg-dark-800 transition-colors text-sm font-medium">Cancel</button>
-                   <button type="submit" className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-500 transition-colors text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2">
-                       <CheckCircle2 size={16} />
-                       Complete Campaign
-                   </button>
-                </div>
-             </form>
+          <div className="flex items-start gap-4 mb-4">
+            <div className="p-3 bg-emerald-500/10 rounded-full text-emerald-500">
+              <CheckCircle2 size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Complete Campaign?</h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Are you sure you want to mark <span className="text-white font-medium">"{campaignToComplete?.name}"</span> as completed? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-end gap-3 mt-6">
+            <button 
+              onClick={() => {
+                setIsConfirmCompletionOpen(false);
+                setIsCompletionModalOpen(true); // Go back to form
+              }}
+              className="px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-dark-800 transition-colors text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleConfirmAndComplete}
+              className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-colors text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+            >
+              <CheckCircle2 size={16} />
+              Yes, Complete
+            </button>
           </div>
         </div>
+      </div>
     );
   }
 
@@ -746,18 +788,30 @@ const Campaigns: React.FC = () => {
                           </div>
                       </div>
 
-                      {/* Edit Button directly on card for 'My Campaigns' tab */}
+                      {/* Edit and Delete Buttons on card for 'My Campaigns' tab */}
                       {activeTab === 'my' && (
-                          <button 
-                              onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditClick(campaign);
-                              }}
-                              className="absolute top-4 right-4 p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-all opacity-0 group-hover:opacity-100"
-                              title="Edit Campaign"
-                          >
-                              <Pencil size={14} />
-                          </button>
+                          <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditClick(campaign);
+                                  }}
+                                  className="p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-all"
+                                  title="Edit Campaign"
+                              >
+                                  <Pencil size={14} />
+                              </button>
+                              <button 
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteRequest(campaign.id);
+                                  }}
+                                  className="p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-red-500 hover:bg-red-600 transition-all"
+                                  title="Delete Campaign"
+                              >
+                                  <Trash2 size={14} />
+                              </button>
+                          </div>
                       )}
                   </div>
               ))}
@@ -853,10 +907,10 @@ const Campaigns: React.FC = () => {
                             <div className="flex items-center justify-end gap-2">
                                 <div className="group/tooltip relative inline-block">
                                     <button 
-                                        disabled={!editable || campaign.status === 'Completed'}
+                                        disabled={!editable || campaign.status !== 'Approved'}
                                         onClick={() => initiateLogCompletion(campaign)}
                                         className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                                            editable && campaign.status !== 'Completed'
+                                            editable && campaign.status === 'Approved'
                                             ? 'bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white' 
                                             : 'bg-dark-900 text-gray-600 cursor-not-allowed'
                                         }`}
@@ -865,24 +919,41 @@ const Campaigns: React.FC = () => {
                                     </button>
                                     
                                     {/* Tooltip explaining why it's disabled */}
-                                    {!editable && (
+                                    {(!editable || campaign.status !== 'Approved') && (
                                         <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-black border border-dark-700 text-gray-300 text-xs rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10">
-                                            {role === 'executive' ? 'Read-only: Observer Mode' : `Read-only: Owned by ${campaign.department}`}
+                                            {!editable 
+                                                ? (role === 'executive' ? 'Read-only: Observer Mode' : `Read-only: Owned by ${campaign.department}`)
+                                                : campaign.status === 'Completed' 
+                                                ? 'Campaign already completed'
+                                                : 'Campaign must be Approved first'
+                                            }
                                         </div>
                                     )}
                                 </div>
 
                                 {activeTab === 'my' && (
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditClick(campaign);
-                                        }}
-                                        className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-colors"
-                                        title="Edit"
-                                    >
-                                        <Pencil size={14} />
-                                    </button>
+                                    <>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditClick(campaign);
+                                            }}
+                                            className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-colors"
+                                            title="Edit"
+                                        >
+                                            <Pencil size={14} />
+                                        </button>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteRequest(campaign.id);
+                                            }}
+                                            className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-red-500 hover:bg-red-600 transition-colors"
+                                            title="Delete"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </td>
@@ -910,7 +981,118 @@ const Campaigns: React.FC = () => {
 
       {/* Modals */}
       {isCreateModalOpen && <CreateCampaignModal />}
-      {isCompletionModalOpen && <CompletionModal />}
+      
+      {/* Completion Modal - Inline to prevent remounting */}
+      {isCompletionModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={handleCompletionClose}
+        >
+          <div 
+            className="bg-black border border-dark-700 rounded-xl w-full max-w-md relative animate-in fade-in zoom-in duration-200 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+             <div className="flex items-center justify-between p-6 pb-2 border-b border-dark-700/50">
+                 <div>
+                     <h2 className="text-xl font-bold text-white">Complete Campaign</h2>
+                     <p className="text-gray-400 text-xs mt-1">Finalize "{campaignToComplete?.name}"</p>
+                 </div>
+                 <button onClick={handleCompletionClose} className="text-gray-400 hover:text-white transition-colors">
+                    <X size={20} />
+                 </button>
+             </div>
+
+             <form onSubmit={handleCompletionSubmit} className="p-6 space-y-5">
+                
+                {/* Completion Date */}
+                <div>
+                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Completion Date</label>
+                   <div className="relative">
+                     <input 
+                         type="date" 
+                         required
+                         value={compData.date}
+                         min={campaignToComplete?.startDate ? new Date(campaignToComplete.startDate).toISOString().split('T')[0] : undefined}
+                         max={new Date().toISOString().split('T')[0]}
+                         onChange={(e) => setCompData({...compData, date: e.target.value})}
+                         className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-1 focus:border-primary-600 focus:ring-primary-600 transition-all text-sm [color-scheme:dark]"
+                     />
+                     <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" size={16} />
+                   </div>
+                   {campaignToComplete?.startDate && (
+                     <p className="text-gray-500 text-xs mt-1">
+                       Campaign started on {new Date(campaignToComplete.startDate).toLocaleDateString('en-GB').replace(/\//g, '-')}
+                     </p>
+                   )}
+                </div>
+
+                {/* Summary */}
+                <div>
+                   <label className="block text-sm font-medium text-gray-300 mb-1.5">Summary / Feedback</label>
+                   <textarea
+                     rows={4}
+                     required
+                     value={compData.summary}
+                     onChange={(e) => setCompData({...compData, summary: e.target.value})}
+                     placeholder="How did the campaign perform? Any key takeaways?"
+                     className="w-full bg-dark-900 border border-dark-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-600 resize-none text-sm placeholder-gray-600"
+                   />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4">
+                   <button type="button" onClick={handleCompletionClose} className="px-4 py-2 rounded-lg text-white hover:bg-dark-800 transition-colors text-sm font-medium">Cancel</button>
+                   <button type="submit" className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-500 transition-colors text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+                       <CheckCircle2 size={16} />
+                       Complete Campaign
+                   </button>
+                </div>
+             </form>
+          </div>
+        </div>
+      )}
+      
+      {isConfirmCompletionOpen && <ConfirmCompletionModal />}
+      
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setIsDeleteModalOpen(false)}
+        >
+          <div 
+            className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-sm p-6 relative animate-in fade-in zoom-in duration-200 shadow-2xl border-l-4 border-l-red-500"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4 mb-4">
+                <div className="p-3 bg-red-500/10 rounded-full text-red-500">
+                    <AlertTriangle size={24} />
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold text-white">Delete Campaign?</h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                        Are you sure you want to delete this campaign? This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-3 mt-6">
+                <button 
+                    onClick={() => setIsDeleteModalOpen(false)} 
+                    className="px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-dark-800 transition-colors text-sm font-medium"
+                >
+                    Cancel
+                </button>
+                <button 
+                    onClick={confirmDelete} 
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors text-sm shadow-lg shadow-red-600/20 flex items-center gap-2"
+                >
+                    <Trash2 size={16} />
+                    Delete
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Detail View Modal */}
       {selectedCampaign && (

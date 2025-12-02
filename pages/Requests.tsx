@@ -97,34 +97,36 @@ const Requests: React.FC = () => {
             ) : (
               <div className="grid gap-4">
                 {pendingRequests.map(request => (
-                  <div key={request.id} className="bg-dark-800 border border-dark-700 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-dark-700 rounded-full">
-                        <User size={24} className="text-gray-300" />
+                  <div key={request.id} className="bg-dark-800 border border-dark-700 rounded-xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="p-2 md:p-3 bg-dark-700 rounded-full shrink-0">
+                        <User size={20} className="text-gray-300 md:w-6 md:h-6" />
                       </div>
-                      <div>
-                        <h3 className="text-lg font-medium text-white">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base md:text-lg font-medium text-white break-words">
                           <span className="font-bold">{request.requesterName || request.requesterEmail}</span> requested access to
                         </h3>
-                        <p className="text-primary-400 font-medium mt-1">{request.influencerName}</p>
-                        <p className="text-sm text-gray-500 mt-2">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
+                        <p className="text-primary-400 font-medium mt-1 break-words">{request.influencerName}</p>
+                        <p className="text-xs md:text-sm text-gray-500 mt-2">Requested on {new Date(request.createdAt).toLocaleDateString()}</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 md:gap-3 shrink-0 w-full md:w-auto">
                       <button 
                         onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                        className="px-4 py-2 rounded-lg border border-red-900/50 text-red-500 hover:bg-red-900/20 transition-colors flex items-center gap-2"
+                        className="flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg border border-red-900/50 text-red-500 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                       >
-                        <X size={18} />
-                        Reject
+                        <X size={16} className="md:w-[18px] md:h-[18px]" />
+                        <span className="hidden sm:inline">Reject</span>
+                        <span className="sm:hidden">✕</span>
                       </button>
                       <button 
                         onClick={() => handleStatusUpdate(request.id, 'approved')}
-                        className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors shadow-lg shadow-green-600/20 flex items-center gap-2"
+                        className="flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-500 transition-colors shadow-lg shadow-green-600/20 flex items-center justify-center gap-2 text-sm md:text-base"
                       >
-                        <Check size={18} />
-                        Approve
+                        <Check size={16} className="md:w-[18px] md:h-[18px]" />
+                        <span className="hidden sm:inline">Approve</span>
+                        <span className="sm:hidden">✓</span>
                       </button>
                     </div>
                   </div>
@@ -137,7 +139,51 @@ const Requests: React.FC = () => {
           {historyRequests.length > 0 && (
             <section>
               <h2 className="text-xl font-semibold text-white mb-4 text-gray-400">Request History</h2>
-              <div className="bg-dark-800 border border-dark-700 rounded-xl overflow-hidden">
+              
+              {/* Mobile View - Cards */}
+              <div className="block lg:hidden space-y-3">
+                {historyRequests.map(request => (
+                  <div key={request.id} className="bg-dark-800 border border-dark-700 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-white font-medium">{request.requesterName || request.requesterEmail}</h3>
+                        <p className="text-sm text-primary-400 mt-1">{request.influencerName}</p>
+                        <p className="text-xs text-gray-500 mt-1">{new Date(request.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 ${
+                        request.status === 'approved' 
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                          : request.status === 'revoked'
+                            ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                            : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      {request.status === 'approved' ? (
+                        <button
+                          onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                          className="flex-1 text-red-500 hover:text-red-400 text-sm font-medium flex items-center justify-center gap-1 px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors border border-red-500/20"
+                        >
+                          <X size={14} /> Reject
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStatusUpdate(request.id, 'approved')}
+                          className="flex-1 text-green-500 hover:text-green-400 text-sm font-medium flex items-center justify-center gap-1 px-3 py-2 rounded-lg hover:bg-green-500/10 transition-colors border border-green-500/20"
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop View - Table */}
+              <div className="hidden lg:block bg-dark-800 border border-dark-700 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-dark-900/50 text-gray-400 text-sm border-b border-dark-700">
@@ -188,6 +234,7 @@ const Requests: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </section>
           )}

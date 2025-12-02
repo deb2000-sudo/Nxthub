@@ -55,6 +55,7 @@ const localStorageService = {
     const updated = campaigns.map(c => c.id === id ? { 
         ...c, 
         status: 'Completed' as CampaignStatus, 
+        endDate: date, // Set endDate when completing
         completionDate: date, 
         completionSummary: summary,
         lastUpdated: new Date().toISOString()
@@ -66,6 +67,13 @@ const localStorageService = {
   updateCampaign: (campaign: Campaign): Campaign[] => {
     const campaigns = localStorageService.getCampaigns();
     const updated = campaigns.map(c => c.id === campaign.id ? { ...campaign, lastUpdated: new Date().toISOString() } : c);
+    localStorageService.saveCampaigns(updated);
+    return updated;
+  },
+
+  deleteCampaign: (id: string): Campaign[] => {
+    const campaigns = localStorageService.getCampaigns();
+    const updated = campaigns.filter(c => c.id !== id);
     localStorageService.saveCampaigns(updated);
     return updated;
   },
@@ -178,6 +186,19 @@ export const dataService = {
     } catch (error) {
       console.error('Firebase error, falling back to localStorage:', error);
       return localStorageService.updateCampaign(campaign);
+    }
+  },
+
+  deleteCampaign: async (id: string): Promise<Campaign[]> => {
+    if (USE_MOCK_DATA) {
+      return localStorageService.deleteCampaign(id);
+    }
+    try {
+      await firebaseCampaignsService.deleteCampaign(id);
+      return await firebaseCampaignsService.getCampaigns();
+    } catch (error) {
+      console.error('Firebase error, falling back to localStorage:', error);
+      return localStorageService.deleteCampaign(id);
     }
   },
 

@@ -292,7 +292,6 @@ const SuperAdminPortal: React.FC = () => {
                 >
                 <option value="executive">Executive</option>
                 <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
                 </select>
             </div>
             
