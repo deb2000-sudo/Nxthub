@@ -22,7 +22,7 @@ const Login: React.FC = () => {
         saveSession(result.user);
         
         if (result.user.role === 'super_admin' || result.user.role === 'admin') {
-          navigate('/super-admin');
+          navigate('/user-management');
         } else {
           navigate('/dashboard');
         }

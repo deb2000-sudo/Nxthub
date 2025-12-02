@@ -14,6 +14,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   
   const sessionUser = getSession();
   const currentUser = sessionUser;
@@ -24,7 +25,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
     }
   }, [currentUser, navigate]);
   
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return <div className="min-h-screen bg-dark-900" />;
+  }
   
   // Allow prop override for role (e.g. SuperAdminPortal forcing a view)
   const currentRole = (propRole || currentUser.role) as Role;
@@ -35,8 +38,21 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
     navigate('/');
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   const handleLogoClick = () => {
-    navigate('/dashboard');
+    if (currentRole === 'super_admin' || currentRole === 'admin') {
+      navigate('/user-management');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   const NavItem = ({ to, icon: Icon, label }: { to: string, icon: any, label: string }) => {
@@ -99,11 +115,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
           </div>
 
           <div className="flex items-center gap-3 mb-8 p-3 bg-dark-700/50 rounded-xl border border-dark-700">
-            <img 
-              src={currentUser.avatar} 
-              alt="Profile" 
-              className="w-10 h-10 rounded-full object-cover border-2 border-dark-700"
-            />
+            {!imgError && currentUser.avatar ? (
+              <img 
+                src={currentUser.avatar} 
+                alt="Profile" 
+                className="w-10 h-10 rounded-full object-cover border-2 border-dark-700"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center border-2 border-dark-700 text-white font-bold text-sm shrink-0">
+                {getInitials(currentUser.name)}
+              </div>
+            )}
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
               <p className="text-xs text-gray-400 truncate capitalize">{currentUser.role} {currentUser.role === 'manager' ? `(${currentUser.department})` : ''}</p>
@@ -113,11 +136,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
           <nav className="space-y-2">
             {(currentRole === 'super_admin' || currentRole === 'admin') ? (
               <>
-                <NavItem to="/super-admin" icon={Shield} label="User Management" />
-                {currentRole === 'super_admin' && (
+                <NavItem to="/user-management" icon={Shield} label="User Management" />
+                {(currentRole === 'super_admin' || currentRole === 'admin') && (
                   <NavItem to="/department-management" icon={Building2} label="Department Management" />
                 )}
-                <NavItem to="/requests" icon={Clock} label="Requests" />
               </>
             ) : (
               <>
@@ -146,16 +168,6 @@ const Layout: React.FC<LayoutProps> = ({ children, title, role: propRole }) => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative pt-16 md:pt-0">
-         {/* Top Bar for Desktop */}
-         <div className="hidden md:flex h-16 border-b border-dark-700 bg-dark-800/50 items-center justify-between px-8 backdrop-blur-sm z-10">
-            <h2 className="text-xl font-semibold text-white">
-               {location.pathname.replace('/', '').charAt(0).toUpperCase() + location.pathname.slice(2)}
-            </h2>
-            <div className="flex items-center gap-4">
-               {/* Placeholders for top header actions */}
-            </div>
-         </div>
-
          {/* Page Content Scrollable Area */}
          <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
             {children}

@@ -6,6 +6,7 @@ import { firebaseDepartmentsService, firebaseRequestsService } from '../services
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
+import MultiSelect from '../components/MultiSelect';
 import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock } from 'lucide-react';
 
 // --- Component: Delete Confirmation Modal ---
@@ -75,10 +76,9 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
   if (!isOpen) return null;
 
   const isEditMode = !!editingInfluencer;
-  const [isLangOpen, setIsLangOpen] = useState(false);
-  const [langSearch, setLangSearch] = useState('');
   
   const availableLanguages = ['Telugu', 'Hindi', 'English', 'Tamil', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Punjabi'];
+  const languageFormOptions: Option[] = availableLanguages.map(lang => ({ value: lang, label: lang }));
 
   // Check delete permission: Only Owner can delete (Managers and Executives for their own)
   const canDelete = isEditMode && (
@@ -117,6 +117,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     platform2_username: editingInfluencer?.platforms?.youtube || '',
     
     category: editingInfluencer?.category || '',
+    influencerType: editingInfluencer?.type || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
     lastPromoBy: editingInfluencer?.lastPromoBy || '',
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
@@ -161,17 +162,6 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleLanguage = (lang: string) => {
-    setFormData(prev => {
-      const current = prev.languages;
-      if (current.includes(lang)) {
-        return { ...prev, languages: current.filter(l => l !== lang) };
-      } else {
-        return { ...prev, languages: [...current, lang] };
-      }
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -184,6 +174,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     if (!isEditMode && !formData.pan) newErrors.pan = "PAN is required";
     if (!formData.platform1_username) newErrors.platform1_username = "Username is required";
     if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.influencerType) newErrors.influencerType = "Influencer Type is required";
     if (formData.languages.length === 0) newErrors.languages = "At least one language is required";
 
     // Mobile Validation
@@ -220,6 +211,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       name: formData.fullName,
       handle: formData.platform1_username.startsWith('@') ? formData.platform1_username : `@${formData.platform1_username}`,
       category: formData.category,
+      type: formData.influencerType as any,
       avatar: isEditMode ? editingInfluencer.avatar : `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=random`,
       email: formData.email,
       mobile: fullMobile,
@@ -255,6 +247,13 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     { value: 'Beauty', label: 'Beauty & Personal Care' },
     { value: 'Finance', label: 'Finance & Business' },
     { value: 'Entertainment', label: 'Entertainment' },
+  ];
+
+  const typeOptions: Option[] = [
+    { value: 'Person', label: 'Person' },
+    { value: 'Meme Page', label: 'Meme Page' },
+    { value: 'Channel', label: 'Channel' },
+    { value: 'Agency', label: 'Agency' },
   ];
 
   const deptOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
@@ -451,7 +450,7 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  </div>
               </div>
               {/* Details Row 3 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                  <div id="input-category">
                     <label className="block text-sm font-medium text-gray-300 mb-2">Category / Niche <span className="text-red-500">*</span></label>
                     <SearchableSelect 
@@ -462,66 +461,28 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                        />
                     {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                  </div>
+
+                 <div id="input-influencerType">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Influencer Type <span className="text-red-500">*</span></label>
+                    <SearchableSelect 
+                         options={typeOptions}
+                         value={formData.influencerType}
+                         onChange={(val) => handleInputChange('influencerType', val)}
+                         placeholder="Select Type"
+                       />
+                    {errors.influencerType && <p className="text-red-500 text-xs mt-1">{errors.influencerType}</p>}
+                 </div>
                  
                  {/* Language Multi-Select Dropdown with Search */}
                  <div className="relative" id="input-languages">
                     <label className="block text-sm font-medium text-gray-300 mb-2">Language <span className="text-red-500">*</span></label>
-                    <div 
-                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white cursor-pointer flex justify-between items-center ${errors.languages ? 'border-red-500' : 'border-dark-700'}`}
-                      onClick={() => {
-                          setIsLangOpen(!isLangOpen);
-                          setLangSearch('');
-                      }}
-                    >
-                       <span className={`block truncate mr-2 ${formData.languages.length === 0 ? 'text-gray-500' : ''}`}>
-                         {formData.languages.length > 0 ? formData.languages.join(', ') : 'Select Language(s)'}
-                       </span>
-                       {isLangOpen ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
-                    </div>
-                    
-                    {isLangOpen && (
-                       <div className="absolute top-full left-0 w-full mt-1 bg-dark-800 border border-dark-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                          {/* Search Bar for Languages */}
-                          <div className="p-2 border-b border-dark-700 sticky top-0 bg-dark-800 z-10">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
-                                <input
-                                    type="text"
-                                    autoFocus
-                                    value={langSearch}
-                                    onChange={(e) => setLangSearch(e.target.value)}
-                                    placeholder="Search language..."
-                                    className="w-full bg-dark-900 border border-dark-700 rounded-md pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 placeholder-gray-600"
-                                    onClick={(e) => e.stopPropagation()} 
-                                />
-                            </div>
-                          </div>
-                          
-                          <div className="max-h-48 overflow-y-auto custom-scrollbar">
-                              {availableLanguages
-                                .filter(lang => lang.toLowerCase().includes(langSearch.toLowerCase()))
-                                .map(lang => (
-                                 <div 
-                                   key={lang}
-                                   className="flex items-center px-4 py-3 hover:bg-dark-700 cursor-pointer"
-                                   onClick={() => toggleLanguage(lang)}
-                                 >
-                                   <div className={`w-5 h-5 rounded border mr-3 flex items-center justify-center transition-colors flex-shrink-0 ${formData.languages.includes(lang) ? 'bg-primary-600 border-primary-600' : 'border-gray-500'}`}>
-                                      {formData.languages.includes(lang) && <Check size={14} className="text-white" />}
-                                   </div>
-                                   <span className="text-gray-200">{lang}</span>
-                                 </div>
-                              ))}
-                              {availableLanguages.filter(lang => lang.toLowerCase().includes(langSearch.toLowerCase())).length === 0 && (
-                                  <div className="p-3 text-sm text-gray-500 text-center">No languages found</div>
-                              )}
-                          </div>
-                       </div>
-                    )}
-                    
-                    {isLangOpen && (
-                       <div className="fixed inset-0 z-10" onClick={() => setIsLangOpen(false)}></div>
-                    )}
+                    <MultiSelect 
+                        options={languageFormOptions}
+                        value={formData.languages}
+                        onChange={(val) => handleInputChange('languages', val)}
+                        placeholder="Select Language(s)"
+                        error={!!errors.languages}
+                    />
                     {errors.languages && <p className="text-red-500 text-xs mt-1">{errors.languages}</p>}
                  </div>
               </div>
@@ -600,6 +561,7 @@ interface DetailsModalProps {
   showEditAction: boolean;
   currentUserRole: string | null;
   currentUserEmail: string | null;
+  currentUserName: string | null;
   currentUserDepartment?: string;
 }
 
@@ -610,19 +572,23 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
   showEditAction,
   currentUserRole,
   currentUserEmail,
+  currentUserName,
   currentUserDepartment
 }) => {
-  const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected' | 'revoked'>('none');
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const checkAccess = async () => {
       if (currentUserRole === 'executive' && currentUserEmail) {
         try {
           const requests = await firebaseRequestsService.getRequestsByUser(currentUserEmail);
-          const request = requests.find(r => r.influencerId === influencer.id);
-          if (request) {
-            setRequestStatus(request.status);
+          if (isMounted) {
+            const request = requests.find(r => r.influencerId === influencer.id);
+            if (request) {
+              setRequestStatus(request.status);
+            }
           }
         } catch (error) {
           console.error('Error checking access:', error);
@@ -630,6 +596,7 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
       }
     };
     checkAccess();
+    return () => { isMounted = false; };
   }, [currentUserRole, currentUserEmail, influencer.id]);
 
   const handleRequestAccess = async () => {
@@ -648,11 +615,13 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
     try {
       await firebaseRequestsService.addRequest({
         requesterId: currentUserEmail,
+        requesterName: currentUserName || 'Unknown User',
         requesterEmail: currentUserEmail,
         influencerId: influencer.id,
         influencerName: influencer.name,
         department: currentUserDepartment,
         status: 'pending',
+        createdAt: new Date().toISOString(),
       });
       setRequestStatus('pending');
     } catch (error) {
@@ -698,6 +667,11 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
           {influencer.language && (
               <span className="bg-dark-800 text-gray-300 px-4 py-1.5 rounded-full text-sm font-medium border border-dark-700 capitalize">
                   {influencer.language}
+              </span>
+          )}
+          {influencer.type && (
+              <span className="bg-dark-800 text-gray-300 px-4 py-1.5 rounded-full text-sm font-medium border border-dark-700 capitalize">
+                  {influencer.type}
               </span>
           )}
           {influencer.department && (
@@ -797,6 +771,7 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
 const Influencers: React.FC = () => {
   const sessionUser = getSession();
   const currentUserEmail = sessionUser?.email || '';
+  const currentUserName = sessionUser?.name || '';
   const currentUserRole = sessionUser?.role || '';
   const currentUserDepartment = sessionUser?.department;
 
@@ -817,8 +792,8 @@ const Influencers: React.FC = () => {
   // Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
-  const [languageFilter, setLanguageFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [languageFilter, setLanguageFilter] = useState<string[]>([]);
   
   // Load initial influencers (async)
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
@@ -851,10 +826,10 @@ const Influencers: React.FC = () => {
       const matchesSearch = inf.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             inf.handle.toLowerCase().includes(searchQuery.toLowerCase());
       // 2. Category Filter
-      const matchesCategory = categoryFilter === 'All' || inf.category === categoryFilter;
+      const matchesCategory = categoryFilter.length === 0 || categoryFilter.includes(inf.category);
 
       // 3. Language Filter
-      const matchesLanguage = languageFilter === 'All' || (inf.language && inf.language.includes(languageFilter));
+      const matchesLanguage = languageFilter.length === 0 || (inf.language && languageFilter.some(lang => inf.language.includes(lang)));
       
       // 4. Tab Filter
       let matchesTab = true;
@@ -922,7 +897,6 @@ const Influencers: React.FC = () => {
   };
 
   const categoryOptions: Option[] = [
-    { value: 'All', label: 'All Categories' },
     { value: 'Fashion', label: 'Fashion & Lifestyle' },
     { value: 'Tech', label: 'Tech & Gadgets' },
     { value: 'Food', label: 'Food & Dining' },
@@ -936,7 +910,6 @@ const Influencers: React.FC = () => {
   ];
 
   const languageOptions: Option[] = [
-      { value: 'All', label: 'All Languages' },
       { value: 'Telugu', label: 'Telugu' },
       { value: 'Hindi', label: 'Hindi' },
       { value: 'English', label: 'English' },
@@ -953,7 +926,7 @@ const Influencers: React.FC = () => {
   const showEditActions = activeTab === 'my';
 
   return (
-    <Layout>
+    <>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Influencers</h1>
@@ -1028,7 +1001,7 @@ const Influencers: React.FC = () => {
                 {/* Category Filter */}
                 <div>
                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Category</label>
-                   <SearchableSelect 
+                   <MultiSelect 
                        options={categoryOptions}
                        value={categoryFilter}
                        onChange={setCategoryFilter}
@@ -1038,7 +1011,7 @@ const Influencers: React.FC = () => {
                 {/* Language Filter */}
                 <div>
                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Language</label>
-                   <SearchableSelect 
+                   <MultiSelect 
                        options={languageOptions}
                        value={languageFilter}
                        onChange={setLanguageFilter}
@@ -1183,6 +1156,7 @@ const Influencers: React.FC = () => {
             showEditAction={showEditActions} // Only show edit button in modal if in 'My' tab
             currentUserRole={currentUserRole}
             currentUserEmail={currentUserEmail}
+            currentUserName={currentUserName}
             currentUserDepartment={currentUserDepartment}
           />
       )}
@@ -1203,7 +1177,7 @@ const Influencers: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)} 
         onConfirm={confirmDelete} 
       />
-    </Layout>
+    </>
   );
 };
 

@@ -10,25 +10,39 @@ const Requests: React.FC = () => {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Use primitive values for dependency array to avoid infinite loops
+  const userDept = sessionUser?.department;
+  const userRole = sessionUser?.role;
+
   useEffect(() => {
+    let isMounted = true;
     const loadRequests = async () => {
-      if (sessionUser?.department && (sessionUser.role === 'manager' || sessionUser.role === 'admin' || sessionUser.role === 'super_admin')) {
+      if (userDept && (userRole === 'manager' || userRole === 'admin' || userRole === 'super_admin')) {
         try {
-          const data = await firebaseRequestsService.getRequestsByDepartment(sessionUser.department);
-          setRequests(data);
+          const data = await firebaseRequestsService.getRequestsByDepartment(userDept);
+          if (isMounted) {
+            setRequests(data);
+          }
         } catch (error) {
           console.error('Error loading requests:', error);
         } finally {
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
         }
       } else {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     loadRequests();
-  }, [sessionUser]);
+    return () => {
+      isMounted = false;
+    };
+  }, [userDept, userRole]);
 
-  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected') => {
+  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected' | 'revoked') => {
     try {
       await firebaseRequestsService.updateRequestStatus(id, status);
       setRequests(prev => prev.map(req => 
@@ -42,13 +56,11 @@ const Requests: React.FC = () => {
 
   if (!sessionUser || (sessionUser.role !== 'manager' && sessionUser.role !== 'admin' && sessionUser.role !== 'super_admin')) {
     return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
-          <Shield size={48} className="mb-4 text-gray-600" />
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p>You do not have permission to view this page.</p>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] text-gray-400">
+        <Shield size={48} className="mb-4 text-gray-600" />
+        <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+        <p>You do not have permission to view this page.</p>
+      </div>
     );
   }
 
@@ -56,7 +68,7 @@ const Requests: React.FC = () => {
   const historyRequests = requests.filter(r => r.status !== 'pending');
 
   return (
-    <Layout>
+    <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Access Requests</h1>
         <p className="text-gray-400">
@@ -133,6 +145,7 @@ const Requests: React.FC = () => {
                       <th className="px-6 py-4 font-semibold">Influencer</th>
                       <th className="px-6 py-4 font-semibold">Date</th>
                       <th className="px-6 py-4 font-semibold">Status</th>
+                      <th className="px-6 py-4 font-semibold">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-700">
@@ -145,10 +158,31 @@ const Requests: React.FC = () => {
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                             request.status === 'approved' 
                               ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                              : 'bg-red-500/10 text-red-500 border-red-500/20'
+                              : request.status === 'revoked'
+                                ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                                : 'bg-red-500/10 text-red-500 border-red-500/20'
                           }`}>
                             {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                           </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {request.status === 'approved' ? (
+                            <button
+                              onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                              className="text-red-500 hover:text-red-400 text-sm font-medium flex items-center gap-1 px-3 py-1 rounded hover:bg-red-500/10 transition-colors"
+                              title="Reject Access"
+                            >
+                              <X size={14} /> Reject
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleStatusUpdate(request.id, 'approved')}
+                              className="text-green-500 hover:text-green-400 text-sm font-medium flex items-center gap-1 px-3 py-1 rounded hover:bg-green-500/10 transition-colors"
+                              title="Grant Access"
+                            >
+                              <Check size={14} /> Approve
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -159,7 +193,7 @@ const Requests: React.FC = () => {
           )}
         </div>
       )}
-    </Layout>
+    </>
   );
 };
 

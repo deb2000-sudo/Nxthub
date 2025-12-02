@@ -50,19 +50,17 @@ const Dashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="animate-spin text-primary-500" size={32} />
-            <p className="text-gray-400">Loading dashboard data...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-primary-500" size={32} />
+          <p className="text-gray-400">Loading dashboard data...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <>
       {/* Dashboard Header with Viewing As Indicator */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
@@ -165,7 +163,7 @@ const Dashboard: React.FC = () => {
             </table>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };
 
