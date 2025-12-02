@@ -1045,18 +1045,30 @@ const Influencers: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Edit Button directly on card for 'My Influencers' tab */}
+                {/* Edit and Delete Buttons on card for 'My Influencers' tab */}
                 {showEditActions && (
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditClick(influencer);
-                        }}
-                        className="absolute top-4 right-4 p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-all opacity-0 group-hover:opacity-100"
-                        title="Edit Influencer"
-                    >
-                        <Pencil size={14} />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditClick(influencer);
+                            }}
+                            className="p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-all"
+                            title="Edit Influencer"
+                        >
+                            <Pencil size={14} />
+                        </button>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteRequest(influencer.id);
+                            }}
+                            className="p-2 rounded-lg bg-dark-900/80 border border-dark-600 text-gray-400 hover:text-white hover:border-red-500 hover:bg-red-600 transition-all"
+                            title="Delete Influencer"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
                 )}
             </div>
             ))}
@@ -1124,13 +1136,22 @@ const Influencers: React.FC = () => {
                                         </button>
                                         
                                         {showEditActions && (
-                                            <button 
-                                                onClick={() => handleEditClick(influencer)}
-                                                className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Pencil size={14} />
-                                            </button>
+                                            <>
+                                                <button 
+                                                    onClick={() => handleEditClick(influencer)}
+                                                    className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-primary-500 hover:bg-primary-600 transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteRequest(influencer.id)}
+                                                    className="p-1.5 rounded-md bg-dark-900 border border-dark-700 text-gray-400 hover:text-white hover:border-red-500 hover:bg-red-600 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </td>

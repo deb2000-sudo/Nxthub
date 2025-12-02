@@ -71,6 +71,13 @@ const localStorageService = {
     return updated;
   },
 
+  deleteCampaign: (id: string): Campaign[] => {
+    const campaigns = localStorageService.getCampaigns();
+    const updated = campaigns.filter(c => c.id !== id);
+    localStorageService.saveCampaigns(updated);
+    return updated;
+  },
+
   // --- Influencers ---
   getInfluencers: (): Influencer[] => {
     try {
@@ -179,6 +186,19 @@ export const dataService = {
     } catch (error) {
       console.error('Firebase error, falling back to localStorage:', error);
       return localStorageService.updateCampaign(campaign);
+    }
+  },
+
+  deleteCampaign: async (id: string): Promise<Campaign[]> => {
+    if (USE_MOCK_DATA) {
+      return localStorageService.deleteCampaign(id);
+    }
+    try {
+      await firebaseCampaignsService.deleteCampaign(id);
+      return await firebaseCampaignsService.getCampaigns();
+    } catch (error) {
+      console.error('Firebase error, falling back to localStorage:', error);
+      return localStorageService.deleteCampaign(id);
     }
   },
 
