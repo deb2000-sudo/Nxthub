@@ -184,10 +184,10 @@ const DepartmentManagement: React.FC = () => {
   };
 
   return (
-    <Layout title="Department Management" role="super_admin">
+    <>
       <div className="space-y-6">
         {/* Header Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-dark-800 p-6 rounded-xl border border-dark-700">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-gray-400">Database Status</h3>
@@ -462,7 +462,7 @@ const DepartmentManagement: React.FC = () => {
         </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 };
 

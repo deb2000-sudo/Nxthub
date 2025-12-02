@@ -194,7 +194,7 @@ const SuperAdminPortal: React.FC = () => {
 
 
   return (
-    <Layout title="Admin Portal" role="super_admin">
+    <>
       <div className="space-y-6">
         {/* Header Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -573,7 +573,7 @@ const SuperAdminPortal: React.FC = () => {
       )}
 
 
-    </Layout>
+    </>
   );
 };
 

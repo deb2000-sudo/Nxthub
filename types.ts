@@ -1,6 +1,6 @@
 export type Role = 'manager' | 'executive' | 'admin' | 'super_admin';
 export type CampaignStatus = 'Pending' | 'Approved' | 'Rejected' | 'Completed';
-export type RequestStatus = 'pending' | 'approved' | 'rejected';
+export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 
 export interface AccessRequest {
   id: string;
@@ -42,6 +42,7 @@ export interface Influencer {
   pan?: string;
   location?: string; // e.g., "Telugu" or City
   language?: string;
+  type?: 'Person' | 'Meme Page' | 'Channel' | 'Agency';
   lastPricePaid?: number;
   lastPromoDate?: string;
   lastPromoBy?: string;

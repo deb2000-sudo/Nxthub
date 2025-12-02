@@ -11,21 +11,27 @@ export const useCampaigns = () => {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const loadCampaigns = async () => {
       try {
-        setLoading(true);
+        if (isMounted) setLoading(true);
         const data = await dataService.getCampaigns();
-        setCampaigns(data);
-        setError(null);
+        if (isMounted) {
+          setCampaigns(data);
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load campaigns'));
-        console.error('Error loading campaigns:', err);
+        if (isMounted) {
+          setError(err instanceof Error ? err : new Error('Failed to load campaigns'));
+          console.error('Error loading campaigns:', err);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     loadCampaigns();
+    return () => { isMounted = false; };
   }, []);
 
   return { campaigns, setCampaigns, loading, error };
@@ -40,21 +46,27 @@ export const useInfluencers = () => {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const loadInfluencers = async () => {
       try {
-        setLoading(true);
+        if (isMounted) setLoading(true);
         const data = await dataService.getInfluencers();
-        setInfluencers(data);
-        setError(null);
+        if (isMounted) {
+          setInfluencers(data);
+          setError(null);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load influencers'));
-        console.error('Error loading influencers:', err);
+        if (isMounted) {
+          setError(err instanceof Error ? err : new Error('Failed to load influencers'));
+          console.error('Error loading influencers:', err);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     loadInfluencers();
+    return () => { isMounted = false; };
   }, []);
 
   return { influencers, setInfluencers, loading, error };

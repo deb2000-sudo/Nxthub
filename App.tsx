@@ -11,6 +11,8 @@ import SuperAdminPortal from './pages/SuperAdminPortal';
 import DepartmentManagement from './pages/DepartmentManagement';
 import Requests from './pages/Requests';
 import { initializeDatabase } from './services/seedService';
+import ErrorBoundary from './components/ErrorBoundary';
+import LayoutWrapper from './components/LayoutWrapper';
 
 const App: React.FC = () => {
   useEffect(() => {
@@ -19,22 +21,29 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<GetStarted />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/campaigns" element={<Campaigns />} />
-        <Route path="/influencers" element={<Influencers />} />
-        <Route path="/messaging" element={<Messaging />} />
-        <Route path="/role-assignment" element={<RoleAssignment />} />
-        <Route path="/super-admin" element={<SuperAdminPortal />} />
-        <Route path="/department-management" element={<DepartmentManagement />} />
-        <Route path="/requests" element={<Requests />} />
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <Routes>
+          <Route path="/" element={<GetStarted />} />
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected Routes with Persistent Layout */}
+          <Route element={<LayoutWrapper />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/influencers" element={<Influencers />} />
+            <Route path="/messaging" element={<Messaging />} />
+            <Route path="/role-assignment" element={<RoleAssignment />} />
+            <Route path="/user-management" element={<SuperAdminPortal />} />
+            <Route path="/department-management" element={<DepartmentManagement />} />
+            <Route path="/requests" element={<Requests />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 };
 

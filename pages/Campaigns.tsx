@@ -606,7 +606,7 @@ const Campaigns: React.FC = () => {
   }
 
   return (
-    <Layout>
+    <>
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-2xl border flex items-center gap-3 animation-fade-in ${
@@ -919,7 +919,7 @@ const Campaigns: React.FC = () => {
              onClose={() => setSelectedCampaign(null)} 
           />
       )}
-    </Layout>
+    </>
   );
 };
 

@@ -221,19 +221,17 @@ const RoleAssignment: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="animate-spin text-primary-500" size={32} />
-            <p className="text-gray-400">Loading users...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin text-primary-500" size={32} />
+          <p className="text-gray-400">Loading users...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <>
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-2xl border flex items-center gap-3 animation-fade-in ${
@@ -334,8 +332,8 @@ const RoleAssignment: React.FC = () => {
       </div>
 
       {/* Edit Modal */}
-      {isEditModalOpen && editingUser && <EditRoleModal />}
-    </Layout>
+      {isEditModalOpen && <EditRoleModal />}
+    </>
   );
 };
 
