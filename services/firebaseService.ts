@@ -306,6 +306,26 @@ export const firebaseInfluencersService = {
     }
   },
 
+  async checkPanExists(pan: string, excludeId?: string): Promise<boolean> {
+    if (!db) throw new Error('Firestore not initialized');
+    
+    try {
+      const influencersRef = collection(db, COLLECTIONS.INFLUENCERS);
+      const q = query(influencersRef, where('pan', '==', pan.toUpperCase()));
+      const querySnapshot = await getDocs(q);
+      
+      // If excludeId is provided, check if any result is not the excluded influencer
+      if (excludeId) {
+        return querySnapshot.docs.some(doc => doc.id !== excludeId);
+      }
+      
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error('Error checking PAN:', error);
+      throw error;
+    }
+  },
+
 
 };
 

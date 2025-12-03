@@ -2,12 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Influencer, Department } from '../types';
 import { dataService } from '../services/dataService';
-import { firebaseDepartmentsService, firebaseRequestsService } from '../services/firebaseService';
+import { firebaseDepartmentsService, firebaseRequestsService, firebaseInfluencersService } from '../services/firebaseService';
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
 import MultiSelect from '../components/MultiSelect';
-import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock } from 'lucide-react';
+import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock, CheckCircle2, Loader2 } from 'lucide-react';
 
 // --- Component: Delete Confirmation Modal ---
 interface DeleteModalProps {
@@ -125,6 +125,52 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [panValidationStatus, setPanValidationStatus] = useState<'idle' | 'checking' | 'verified' | 'exists'>('idle');
+
+  // Reset validation status when modal opens/closes or editing influencer changes
+  useEffect(() => {
+    if (!isOpen) {
+      setPanValidationStatus('idle');
+    }
+  }, [isOpen]);
+
+  // Debounced PAN validation
+  useEffect(() => {
+    if (!isOpen) return; // Don't validate if modal is closed
+    
+    if (!formData.pan || formData.pan.length !== 10) {
+      setPanValidationStatus('idle');
+      return;
+    }
+
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    if (!panRegex.test(formData.pan)) {
+      setPanValidationStatus('idle');
+      return;
+    }
+
+    // Skip validation in edit mode if PAN hasn't changed
+    if (isEditMode && editingInfluencer?.pan === formData.pan) {
+      setPanValidationStatus('idle');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setPanValidationStatus('checking');
+      try {
+        const exists = await firebaseInfluencersService.checkPanExists(
+          formData.pan, 
+          isEditMode ? editingInfluencer?.id : undefined
+        );
+        setPanValidationStatus(exists ? 'exists' : 'verified');
+      } catch (error) {
+        console.error('Error checking PAN:', error);
+        setPanValidationStatus('idle');
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.pan, isEditMode, editingInfluencer?.id, editingInfluencer?.pan, isOpen]);
 
   const handleInputChange = (field: string, value: any) => {
     // Clear error when user types
@@ -148,6 +194,8 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       // Uppercase and max 10 chars
       const upperValue = value.toUpperCase().slice(0, 10);
       setFormData(prev => ({ ...prev, [field]: upperValue }));
+      // Reset validation status when PAN changes (useEffect will handle the check)
+      setPanValidationStatus('idle');
       return;
     }
 
@@ -186,6 +234,11 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
     if (formData.pan && !panRegex.test(formData.pan)) {
         newErrors.pan = "Invalid PAN format (e.g., ABCDE1234F).";
+    }
+    
+    // Check if PAN already exists (only for new influencers)
+    if (!isEditMode && formData.pan && panValidationStatus === 'exists') {
+        newErrors.pan = "Influencer already registered with nxtwave";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -362,15 +415,39 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">PAN {isEditMode ? '' : <span className="text-red-500">*</span>}</label>
-                    <input 
-                      id="input-pan"
-                      type="text" 
-                      value={formData.pan}
-                      onChange={(e) => handleInputChange('pan', e.target.value)}
-                      placeholder={isEditMode ? "Hidden for security" : "ABCD1234E"}
-                      className={`w-full bg-dark-800 border rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-1 uppercase ${errors.pan ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
-                    />
+                    <div className="relative">
+                      <input 
+                        id="input-pan"
+                        type="text" 
+                        value={formData.pan}
+                        onChange={(e) => handleInputChange('pan', e.target.value)}
+                        placeholder={isEditMode ? "Hidden for security" : "ABCDE1234F"}
+                        className={`w-full bg-dark-800 border rounded-lg px-4 py-3 pr-10 text-white focus:outline-none focus:ring-1 uppercase ${errors.pan ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : panValidationStatus === 'verified' ? 'border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500' : panValidationStatus === 'exists' ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-dark-700 focus:border-primary-500 focus:ring-primary-500'}`} 
+                      />
+                      {formData.pan && formData.pan.length === 10 && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {panValidationStatus === 'checking' && (
+                            <Loader2 className="animate-spin text-gray-400" size={18} />
+                          )}
+                          {panValidationStatus === 'verified' && (
+                            <CheckCircle2 className="text-emerald-500" size={18} />
+                          )}
+                          {panValidationStatus === 'exists' && (
+                            <AlertTriangle className="text-red-500" size={18} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {panValidationStatus === 'verified' && !errors.pan && (
+                      <p className="text-emerald-500 text-xs mt-1 flex items-center gap-1">
+                        <CheckCircle2 size={12} />
+                        Verified PAN
+                      </p>
+                    )}
                     {errors.pan && <p className="text-red-500 text-xs mt-1">{errors.pan}</p>}
+                    {panValidationStatus === 'exists' && !errors.pan && (
+                      <p className="text-red-500 text-xs mt-1">Influencer already registered with nxtwave</p>
+                    )}
                  </div>
               </div>
 
