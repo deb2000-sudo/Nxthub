@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { firebaseDepartmentsService } from '../services/firebaseService';
 import { Department } from '../types';
-import { Upload, Plus, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, Building2, Pencil, X } from 'lucide-react';
+import { Upload, Plus, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, Trash2, Database, Building2, Pencil, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { USE_MOCK_DATA } from '../config/firebase';
 
@@ -21,9 +21,16 @@ const DepartmentManagement: React.FC = () => {
   // Modal States
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [isDeleteDeptModalOpen, setIsDeleteDeptModalOpen] = useState(false);
+  const [isBulkDeleteDeptModalOpen, setIsBulkDeleteDeptModalOpen] = useState(false);
   const [isEditDeptModalOpen, setIsEditDeptModalOpen] = useState(false);
   const [editDeptName, setEditDeptName] = useState('');
   const [editDeptHod, setEditDeptHod] = useState('');
+  
+  // Bulk Selection & Pagination States
+  const [selectedDeptIds, setSelectedDeptIds] = useState<Set<string>>(new Set());
+  const [currentDeptPage, setCurrentDeptPage] = useState(1);
+  const [deptsPerPage] = useState(10);
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchDepartments();
@@ -47,6 +54,101 @@ const DepartmentManagement: React.FC = () => {
     setNewDeptHod('');
     setSelectedDept(null);
     setIsDeleteDeptModalOpen(false);
+    setIsBulkDeleteDeptModalOpen(false);
+    setSelectedDeptIds(new Set());
+  };
+
+  // Pagination helpers
+  const getPaginatedDepartments = () => {
+    const startIndex = (currentDeptPage - 1) * deptsPerPage;
+    const endIndex = startIndex + deptsPerPage;
+    return departments.slice(startIndex, endIndex);
+  };
+
+  const totalDeptPages = Math.ceil(departments.length / deptsPerPage);
+
+  // Checkbox handlers
+  const handleSelectAllDepartments = (checked: boolean) => {
+    if (checked) {
+      const paginatedDepts = getPaginatedDepartments();
+      setSelectedDeptIds(new Set(paginatedDepts.map(d => d.id)));
+    } else {
+      setSelectedDeptIds(new Set());
+    }
+  };
+
+  const handleSelectDepartment = (deptId: string, checked: boolean) => {
+    const newSelected = new Set(selectedDeptIds);
+    if (checked) {
+      newSelected.add(deptId);
+    } else {
+      newSelected.delete(deptId);
+    }
+    setSelectedDeptIds(newSelected);
+  };
+
+  const isAllDepartmentsSelected = () => {
+    const paginatedDepts = getPaginatedDepartments();
+    return paginatedDepts.length > 0 && paginatedDepts.every(d => selectedDeptIds.has(d.id));
+  };
+
+  const isSomeDepartmentsSelected = () => {
+    const paginatedDepts = getPaginatedDepartments();
+    return paginatedDepts.some(d => selectedDeptIds.has(d.id)) && !isAllDepartmentsSelected();
+  };
+
+  // Update indeterminate state of select all checkbox
+  useEffect(() => {
+    if (selectAllCheckboxRef.current) {
+      selectAllCheckboxRef.current.indeterminate = isSomeDepartmentsSelected();
+    }
+  }, [selectedDeptIds, currentDeptPage, departments]);
+
+  // Bulk delete handler
+  const handleBulkDeleteDepartments = async () => {
+    if (selectedDeptIds.size === 0) return;
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const deptIdsArray = Array.from(selectedDeptIds);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const deptId of deptIdsArray) {
+        try {
+          await firebaseDepartmentsService.deleteDepartment(deptId);
+          successCount++;
+        } catch (err: any) {
+          console.error(`Failed to delete department ${deptId}:`, err);
+          failCount++;
+        }
+      }
+
+      if (failCount > 0) {
+        setError(`Bulk delete completed. Successfully deleted: ${successCount}, Failed: ${failCount}`);
+      } else {
+        setSuccess(`Successfully deleted ${successCount} department(s)`);
+      }
+
+      setSelectedDeptIds(new Set());
+      setIsBulkDeleteDeptModalOpen(false);
+      fetchDepartments();
+      
+      // Reset to first page if current page becomes empty
+      const newTotalPages = Math.ceil((departments.length - successCount) / deptsPerPage);
+      if (currentDeptPage > newTotalPages && newTotalPages > 0) {
+        setCurrentDeptPage(newTotalPages);
+      } else if (newTotalPages === 0) {
+        setCurrentDeptPage(1);
+      }
+    } catch (err: any) {
+      setError('Failed to delete departments: ' + err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleAddDepartment = async (e: React.FormEvent) => {
@@ -308,13 +410,31 @@ const DepartmentManagement: React.FC = () => {
 
         {/* Departments List */}
         <div className="bg-dark-800 rounded-xl border border-dark-700 overflow-hidden">
-        <div className="p-6 border-b border-dark-700">
+        <div className="p-6 border-b border-dark-700 flex items-center justify-between flex-wrap gap-4">
             <h2 className="text-xl font-bold text-white">Departments</h2>
+            {selectedDeptIds.size > 0 && (
+              <button
+                onClick={() => setIsBulkDeleteDeptModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                <Trash2 size={16} />
+                Delete Selected ({selectedDeptIds.size})
+              </button>
+            )}
         </div>
         <div className="overflow-x-auto">
             <table className="w-full text-left">
             <thead>
                 <tr className="bg-dark-900 text-gray-400 text-sm">
+                <th className="p-4 font-medium w-12">
+                  <input
+                    type="checkbox"
+                    checked={isAllDepartmentsSelected()}
+                    ref={selectAllCheckboxRef}
+                    onChange={(e) => handleSelectAllDepartments(e.target.checked)}
+                    className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500 focus:ring-2 cursor-pointer"
+                  />
+                </th>
                 <th className="p-4 font-medium">Department Name</th>
                 <th className="p-4 font-medium">HOD Name</th>
                 <th className="p-4 font-medium text-right">Actions</th>
@@ -323,20 +443,28 @@ const DepartmentManagement: React.FC = () => {
             <tbody>
                 {deptLoading ? (
                 <tr>
-                    <td colSpan={3} className="p-8 text-center text-gray-400">
+                    <td colSpan={4} className="p-8 text-center text-gray-400">
                     <Loader2 className="animate-spin mx-auto mb-2" size={24} />
                     Loading departments...
                     </td>
                 </tr>
                 ) : departments.length === 0 ? (
                 <tr>
-                    <td colSpan={3} className="p-8 text-center text-gray-400">
+                    <td colSpan={4} className="p-8 text-center text-gray-400">
                     No departments found. Add a department.
                     </td>
                 </tr>
                 ) : (
-                departments.map((dept) => (
+                getPaginatedDepartments().map((dept) => (
                     <tr key={dept.id} className="border-b border-dark-700 hover:bg-dark-750 transition-colors">
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedDeptIds.has(dept.id)}
+                        onChange={(e) => handleSelectDepartment(dept.id, e.target.checked)}
+                        className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-primary-600 focus:ring-primary-500 focus:ring-2 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-4">
                         <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-primary-500/10 flex items-center justify-center text-primary-500">
@@ -372,6 +500,72 @@ const DepartmentManagement: React.FC = () => {
             </tbody>
             </table>
         </div>
+        
+        {/* Pagination */}
+        {departments.length > 0 && (
+          <div className="p-4 border-t border-dark-700 flex items-center justify-between flex-wrap gap-4">
+            <div className="text-sm text-gray-400">
+              Showing {(currentDeptPage - 1) * deptsPerPage + 1} to {Math.min(currentDeptPage * deptsPerPage, departments.length)} of {departments.length} departments
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setCurrentDeptPage(prev => Math.max(1, prev - 1));
+                  setSelectedDeptIds(new Set()); // Clear selections on page change
+                }}
+                disabled={currentDeptPage === 1}
+                className="p-2 rounded-lg border border-dark-700 text-gray-400 hover:text-white hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalDeptPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    // Show first page, last page, current page, and pages around current
+                    if (totalDeptPages <= 7) return true;
+                    if (page === 1 || page === totalDeptPages) return true;
+                    if (Math.abs(page - currentDeptPage) <= 1) return true;
+                    return false;
+                  })
+                  .map((page, index, array) => {
+                    // Add ellipsis
+                    const prevPage = array[index - 1];
+                    const showEllipsis = prevPage && page - prevPage > 1;
+                    return (
+                      <React.Fragment key={page}>
+                        {showEllipsis && (
+                          <span className="px-2 text-gray-500">...</span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setCurrentDeptPage(page);
+                            setSelectedDeptIds(new Set()); // Clear selections on page change
+                          }}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                            currentDeptPage === page
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-dark-700 text-gray-400 hover:bg-dark-600 hover:text-white'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+              </div>
+              <button
+                onClick={() => {
+                  setCurrentDeptPage(prev => Math.min(totalDeptPages, prev + 1));
+                  setSelectedDeptIds(new Set()); // Clear selections on page change
+                }}
+                disabled={currentDeptPage === totalDeptPages}
+                className="p-2 rounded-lg border border-dark-700 text-gray-400 hover:text-white hover:bg-dark-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
         </div>
 
         {/* Edit Department Modal */}
@@ -460,6 +654,42 @@ const DepartmentManagement: React.FC = () => {
             </div>
             </div>
         </div>
+        )}
+
+        {/* Bulk Delete Departments Confirmation Modal */}
+        {isBulkDeleteDeptModalOpen && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-dark-800 rounded-xl border border-dark-700 w-full max-w-md p-6 relative animate-in fade-in zoom-in duration-200">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="text-red-500" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Delete Selected Departments?</h3>
+                <p className="text-gray-400 mb-6">
+                  Are you sure you want to delete <span className="text-white font-medium">{selectedDeptIds.size}</span> selected department(s)? This action cannot be undone.
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setIsBulkDeleteDeptModalOpen(false);
+                      setSelectedDeptIds(new Set());
+                    }}
+                    className="flex-1 bg-dark-700 hover:bg-dark-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBulkDeleteDepartments}
+                    disabled={actionLoading}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : `Delete ${selectedDeptIds.size} Department(s)`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>
