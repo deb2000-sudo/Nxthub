@@ -49,6 +49,8 @@ export interface Influencer {
   platforms?: {
     instagram?: string;
     youtube?: string;
+    instagramChannel?: string;
+    youtubeChannel?: string;
   };
   createdBy?: string; // Email of the user who added this influencer
 }
