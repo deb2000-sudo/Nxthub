@@ -24,12 +24,14 @@ export const login = async (email: string, password: string): Promise<{ success:
       firebaseUserUid = userCredential.user.uid;
     } catch (error: any) {
       // Suppress Firebase auth errors - they're expected when using custom auth
-      // Only log unexpected errors (not credential/user-not-found errors)
+      // Only log unexpected errors (not credential/user-not-found/configuration errors)
       if (error.code && 
           error.code !== 'auth/invalid-credential' && 
           error.code !== 'auth/user-not-found' &&
           error.code !== 'auth/wrong-password' &&
-          error.code !== 'auth/invalid-email') {
+          error.code !== 'auth/invalid-email' &&
+          error.code !== 'auth/configuration-not-found' &&
+          error.code !== 'auth/network-request-failed') {
          console.log('Firebase auth error:', error.code);
       }
       // Silently continue to custom auth flow
@@ -44,28 +46,33 @@ export const login = async (email: string, password: string): Promise<{ success:
     // In mock mode, we still validate that password was provided (already checked above)
   } else {
     // 3. Firestore Custom Auth (for users added via Super Admin Portal)
-    if (!auth) {
-      return { success: false, message: 'Authentication service not available' };
-    }
-
+    // Note: We can use Firestore custom auth even if Firebase Auth fails
+    // as long as Firestore is available
+    
     try {
       // Fetch user data from Firestore
+      console.log(`🔍 Searching for user with email: ${email}`);
       const userData = await firebaseUsersService.getUserByEmail(email);
       
       if (userData) {
+        console.log(`✅ User found in database:`, { email: userData.email, role: userData.role, id: userData.id });
         // Check if password matches (Custom Auth)
         // Note: In a real app, passwords should be hashed. Here we compare plaintext as requested.
         const userWithPassword = userData as any;
         if (password && userWithPassword.password && userWithPassword.password !== password) {
+           console.log(`❌ Password mismatch for user: ${email}`);
            return { success: false, message: 'Incorrect password' };
         }
         
         // Sanitize user object - remove password before returning
         const { password: _, ...sanitizedUser } = userWithPassword;
         user = sanitizedUser as User;
+        console.log(`✅ Login successful for user: ${email}`);
       } else {
+        console.log(`❌ User not found in database: ${email}`);
         // Bootstrap Check: Allow default admin to login if DB is empty/deleted
-        if (email.toLowerCase() === 'admin@brandnxtwave.co.in' && password === 'nxt@123') {
+        if (email.toLowerCase().trim() === 'admin@brandnxtwave.co.in' && password === 'nxt@123') {
+          console.log(`✅ Using bootstrap admin account`);
           return {
             success: true,
             user: {
@@ -80,11 +87,28 @@ export const login = async (email: string, password: string): Promise<{ success:
 
         if (firebaseAuthSuccess) {
            // User exists in Auth but not in Firestore (rare, but possible)
+           console.log(`⚠️ User exists in Firebase Auth but not in Firestore: ${email}`);
            return { success: false, message: 'User account not properly configured. Please contact admin.' };
         }
+        // If user not found and Firebase Auth also failed, we'll return "User not found" below
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      // Check if it's a Firestore initialization error
+      if (error.message && error.message.includes('Firestore not initialized')) {
+        console.error('❌ Firestore not initialized');
+        return { success: false, message: 'Database not available. Please check your connection.' };
+      }
+      // Check for permission errors
+      if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        console.error('❌ Firestore permission denied:', error);
+        return { success: false, message: 'Permission denied. Please check Firestore security rules.' };
+      }
+      console.error('❌ Login error:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        email: email
+      });
       return { success: false, message: 'Authentication failed. Please try again.' };
     }
   }

@@ -466,41 +466,61 @@ export const firebaseUsersService = {
 
   async getUserByEmail(email: string): Promise<User | null> {
     if (!db) throw new Error('Firestore not initialized');
-    const searchEmail = email.toLowerCase();
+    const searchEmail = email.toLowerCase().trim();
 
     try {
       const roles = ['admins', 'managers', 'executives'];
       
       // 1. Check Root Documents (Default Users)
       for (const roleDoc of roles) {
-        const docRef = doc(db, COLLECTIONS.USERS, roleDoc);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.email && data.email.toLowerCase() === searchEmail) {
-             // Map document name to role (admins -> admin)
-             const role = roleDoc.slice(0, -1) as Role; 
-             return { id: roleDoc, ...data, role } as User;
+        try {
+          const docRef = doc(db, COLLECTIONS.USERS, roleDoc);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const userEmail = data.email ? data.email.toLowerCase().trim() : '';
+            if (userEmail === searchEmail) {
+               // Map document name to role (admins -> admin)
+               const role = roleDoc.slice(0, -1) as Role; 
+               console.log(`✅ Found user in root document: ${roleDoc}`, { email: data.email, role });
+               return { id: roleDoc, ...data, role } as User;
+            }
           }
+        } catch (rootError: any) {
+          console.warn(`Error checking root document ${roleDoc}:`, rootError.code || rootError.message);
+          // Continue to next role
         }
       }
 
       // 2. Check Created Users Subcollections
       for (const roleDoc of roles) {
-        const q = query(
-          collection(db, COLLECTIONS.USERS, roleDoc, 'created_users'), 
-          where('email', '==', searchEmail)
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          const doc = snapshot.docs[0];
-          return { id: doc.id, ...doc.data() } as User;
+        try {
+          const q = query(
+            collection(db, COLLECTIONS.USERS, roleDoc, 'created_users'), 
+            where('email', '==', searchEmail)
+          );
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            const userData = doc.data();
+            console.log(`✅ Found user in subcollection: ${roleDoc}/created_users`, { email: userData.email, id: doc.id });
+            return { id: doc.id, ...userData } as User;
+          }
+        } catch (subError: any) {
+          console.warn(`Error checking subcollection ${roleDoc}/created_users:`, subError.code || subError.message);
+          // Continue to next role
         }
       }
       
+      console.log(`❌ User not found with email: ${email} (searched as: ${searchEmail})`);
       return null;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching user by email:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        email: searchEmail
+      });
       throw error;
     }
   },
@@ -513,7 +533,7 @@ export const firebaseUsersService = {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
-      const searchEmail = user.email.toLowerCase();
+      const searchEmail = user.email.toLowerCase().trim();
       
       // Check if user exists to handle updates
       // We need to find WHERE the user is to update or move them
