@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { Campaign, CampaignStatus, Department, Influencer } from '../types';
 import { dataService } from '../services/dataService';
-import { firebaseDepartmentsService } from '../services/firebaseService';
+import { firebaseDepartmentsService, firebaseUsersService } from '../services/firebaseService';
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
@@ -71,6 +71,10 @@ const Campaigns: React.FC = () => {
   const [statusChangeSummary, setStatusChangeSummary] = useState('');
   const [statusChangeError, setStatusChangeError] = useState('');
 
+  // Campaign Summary Modal State
+  const [isCampaignSummaryModalOpen, setIsCampaignSummaryModalOpen] = useState(false);
+  const [campaignForSummary, setCampaignForSummary] = useState<Campaign | null>(null);
+
   // Completion Form Data
   const [compData, setCompData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -126,8 +130,8 @@ const Campaigns: React.FC = () => {
     }
 
     if (!canEditCampaign(campaign)) {
-      setToast({ message: `Unauthorized: Read-only access.`, type: 'error' });
-      return;
+        setToast({ message: `Unauthorized: Read-only access.`, type: 'error' });
+        return;
     }
 
     setCampaignToChangeStatus(campaign);
@@ -312,29 +316,28 @@ const Campaigns: React.FC = () => {
                     </div>
                     
                     <div className="bg-dark-900/50 rounded-xl p-4 border border-dark-700">
-                        <h3 className="text-gray-500 text-xs font-bold uppercase mb-3 flex items-center gap-2">
-                            <Clock size={12} /> Timeline
-                        </h3>
-                        <div className="text-sm text-gray-200">
-                            Start: <span className="text-white font-medium">{new Date(campaign.startDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
-                        </div>
-                        {campaign.status === 'Completed' && campaign.endDate && (
-                            <div className="text-sm text-gray-200 mt-1">
-                                End: <span className="text-white font-medium">{new Date(campaign.endDate).toLocaleDateString('en-GB').replace(/\//g, '-')}</span>
-                            </div>
-                        )}
+                        <button
+                            onClick={() => {
+                                setCampaignForSummary(campaign);
+                                setIsCampaignSummaryModalOpen(true);
+                            }}
+                            className="w-full px-5 py-3.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all duration-200 shadow-lg shadow-primary-600/30 hover:shadow-xl hover:shadow-primary-600/40 flex items-center justify-center gap-2.5 text-sm group transform hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <FileText size={18} className="group-hover:scale-110 transition-transform duration-200" />
+                            <span>View Campaign Summary</span>
+                        </button>
                     </div>
                     
                     {/* Status Control */}
                     <div className="bg-dark-900/50 rounded-xl p-4 border border-dark-700">
                          <h3 className="text-gray-500 text-xs font-bold uppercase mb-3 flex items-center gap-2">
-                            <CheckCircle2 size={12} /> Approval Status
+                            <CheckCircle2 size={12} /> Campaign Status
                         </h3>
                         {editable ? (
                             <div className="space-y-3">
-                                <div className="relative">
-                                    <select
-                                        value={campaign.status}
+                            <div className="relative">
+                                <select
+                                    value={campaign.status}
                                         onChange={(e) => {
                                           const selectedStatus = e.target.value as CampaignStatus;
                                           if (selectedStatus !== campaign.status) {
@@ -343,52 +346,23 @@ const Campaigns: React.FC = () => {
                                         }}
                                         disabled={campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')}
                                         className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border bg-dark-900 border-dark-600 text-white focus:outline-none focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <option value="Pending">Pending</option>
-                                        <option value="Approved">Approved</option>
-                                        <option value="Rejected">Rejected</option>
+                                >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rejected">Rejected</option>
+                                    {/* Only show Completed option if status is Approved or already Completed */}
+                                    {(campaign.status === 'Approved' || campaign.status === 'Completed') && (
                                         <option value="Completed">Completed</option>
-                                    </select>
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                                    )}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                                 </div>
-                                {/* Show status change info if status was changed from Pending */}
-                                {campaign.statusChangeDate && campaign.statusChangeSummary && (
-                                    <div className="pt-3 border-t border-dark-700 space-y-2">
-                                        <div className="text-xs text-gray-500">
-                                            Status changed on: <span className="text-white">{new Date(campaign.statusChangeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            Summary: <span className="text-white text-sm">{campaign.statusChangeSummary}</span>
-                                        </div>
-                                        {campaign.statusChangedBy && (
-                                            <div className="text-xs text-gray-500">
-                                                Changed by: <span className="text-white">{campaign.statusChangedBy}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         ) : (
                             <div className="space-y-2">
-                                <div className="text-sm text-gray-400 italic">
-                                    Read-only access
+                            <div className="text-sm text-gray-400 italic">
+                                Read-only access
                                 </div>
-                                {/* Show status change info even in read-only mode */}
-                                {campaign.statusChangeDate && campaign.statusChangeSummary && (
-                                    <div className="pt-3 border-t border-dark-700 space-y-2">
-                                        <div className="text-xs text-gray-500">
-                                            Status changed on: <span className="text-white">{new Date(campaign.statusChangeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            Summary: <span className="text-white text-sm">{campaign.statusChangeSummary}</span>
-                                        </div>
-                                        {campaign.statusChangedBy && (
-                                            <div className="text-xs text-gray-500">
-                                                Changed by: <span className="text-white">{campaign.statusChangedBy}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                             </div>
                         )}
                     </div>
@@ -438,12 +412,277 @@ const Campaigns: React.FC = () => {
                         }}
                         className="px-5 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20"
                      >
-                        Log Completion
+                        Complete Campaign
                      </button>
                  )}
             </div>
           </div>
         </div>
+    );
+  };
+
+  // --- Modal: Campaign Summary ---
+  const CampaignSummaryModal = ({ campaign, onClose }: { campaign: Campaign, onClose: () => void }) => {
+    const [createdByUser, setCreatedByUser] = useState<{ name: string; department?: string } | null>(null);
+    const [statusChangedByUser, setStatusChangedByUser] = useState<{ name: string; department?: string } | null>(null);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
+    useEffect(() => {
+      const loadUserData = async () => {
+        setIsLoadingUsers(true);
+        try {
+          // Load created by user
+          if (campaign.createdBy) {
+            try {
+              const user = await firebaseUsersService.getUserByEmail(campaign.createdBy);
+              if (user) {
+                setCreatedByUser({ name: user.name, department: user.department });
+              }
+            } catch (error) {
+              console.error('Error loading created by user:', error);
+            }
+          }
+
+          // Load status changed by user
+          if (campaign.statusChangedBy) {
+            try {
+              const user = await firebaseUsersService.getUserByEmail(campaign.statusChangedBy);
+              if (user) {
+                setStatusChangedByUser({ name: user.name, department: user.department });
+              }
+            } catch (error) {
+              console.error('Error loading status changed by user:', error);
+            }
+          }
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      };
+      loadUserData();
+    }, [campaign.createdBy, campaign.statusChangedBy]);
+
+    const formatDateTime = (dateString?: string): string => {
+      if (!dateString) return 'N/A';
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    const formatDate = (dateString?: string): string => {
+      if (!dateString) return 'N/A';
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'N/A';
+        return date.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    return (
+      <div 
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-black border border-dark-700 rounded-2xl w-full max-w-3xl overflow-hidden relative animate-in fade-in zoom-in duration-200 shadow-2xl flex flex-col max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-dark-700 bg-dark-900/50">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">Campaign Summary</h2>
+              <p className="text-gray-400 text-sm">{campaign.name}</p>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="p-8 overflow-y-auto custom-scrollbar space-y-6">
+            {/* Campaign Creation */}
+            {campaign.createdAt && (
+              <div className="bg-dark-900/50 rounded-xl p-5 border border-dark-700">
+                <h3 className="text-gray-500 text-xs font-bold uppercase mb-4 flex items-center gap-2">
+                  <Calendar size={14} /> Campaign Creation
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary-500 mt-2"></div>
+                    <div className="flex-1">
+                      <div className="text-white font-medium mb-1">Campaign Created</div>
+                      <div className="text-sm text-gray-400">
+                        <div className="mb-1">
+                          <span className="text-gray-500">Date & Time:</span>{' '}
+                          <span className="text-white">{formatDateTime(campaign.createdAt)}</span>
+                        </div>
+                        {campaign.createdBy && (
+                          <div className="mb-1">
+                            <span className="text-gray-500">Created By:</span>{' '}
+                            <span className="text-white">
+                              {isLoadingUsers ? 'Loading...' : (createdByUser?.name || campaign.createdBy)}
+                            </span>
+                            {createdByUser?.department && (
+                              <span className="text-gray-500 ml-2">({createdByUser.department})</span>
+                            )}
+                          </div>
+                        )}
+                        {campaign.department && (
+                          <div>
+                            <span className="text-gray-500">Department:</span>{' '}
+                            <span className="text-white">{campaign.department}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Status Change History */}
+            {campaign.statusChangeDate && (
+              <div className="bg-dark-900/50 rounded-xl p-5 border border-dark-700">
+                <h3 className="text-gray-500 text-xs font-bold uppercase mb-4 flex items-center gap-2">
+                  <CheckCircle2 size={14} /> Status Change History
+                </h3>
+                <div className="space-y-4">
+                  {/* Pending to Approved/Rejected/Completed */}
+                  {campaign.status !== 'Pending' && campaign.statusChangeDate && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                      <div className="flex-1">
+                        <div className="text-white font-medium mb-1">
+                          Status Changed: Pending → {campaign.status}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          <div className="mb-1">
+                            <span className="text-gray-500">Date & Time:</span>{' '}
+                            <span className="text-white">{formatDateTime(campaign.statusChangeDate)}</span>
+                          </div>
+                          {campaign.statusChangedBy && (
+                            <div className="mb-1">
+                              <span className="text-gray-500">Changed By:</span>{' '}
+                              <span className="text-white">
+                                {isLoadingUsers ? 'Loading...' : (statusChangedByUser?.name || campaign.statusChangedBy)}
+                              </span>
+                              {statusChangedByUser?.department && (
+                                <span className="text-gray-500 ml-2">({statusChangedByUser.department})</span>
+                              )}
+                            </div>
+                          )}
+                          {campaign.statusChangeSummary && (
+                            <div className="mt-2 pt-2 border-t border-dark-700">
+                              <span className="text-gray-500">Summary:</span>
+                              <div className="text-white mt-1 italic">{campaign.statusChangeSummary}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Completion (if status is Completed) */}
+                  {campaign.status === 'Completed' && campaign.completionDate && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                      <div className="flex-1">
+                        <div className="text-white font-medium mb-1">Campaign Completed</div>
+                        <div className="text-sm text-gray-400">
+                          <div>
+                            <span className="text-gray-500">Completion Date:</span>{' '}
+                            <span className="text-white">{formatDate(campaign.completionDate)}</span>
+                          </div>
+                          {campaign.completionSummary && (
+                            <div className="mt-2 pt-2 border-t border-dark-700">
+                              <span className="text-gray-500">Completion Summary:</span>
+                              <div className="text-white mt-1 italic">{campaign.completionSummary}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Timeline Overview */}
+            <div className="bg-dark-900/50 rounded-xl p-5 border border-dark-700">
+              <h3 className="text-gray-500 text-xs font-bold uppercase mb-4 flex items-center gap-2">
+                <Clock size={14} /> Timeline Overview
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 text-sm">Start Date:</span>
+                  <span className="text-white font-medium">{formatDate(campaign.startDate)}</span>
+                </div>
+                {/* Show Approval Date if status is Approved */}
+                {campaign.status === 'Approved' && campaign.statusChangeDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">Approval Date:</span>
+                    <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                  </div>
+                )}
+                {/* Show Rejected Date if status is Rejected */}
+                {campaign.status === 'Rejected' && campaign.statusChangeDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">Rejected Date:</span>
+                    <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                  </div>
+                )}
+                {/* Show Completion Date if status is Completed */}
+                {campaign.status === 'Completed' && campaign.completionDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">Completion Date:</span>
+                    <span className="text-white font-medium">{formatDate(campaign.completionDate)}</span>
+                  </div>
+                )}
+                {/* Show End Date if campaign is completed and endDate exists */}
+                {campaign.status === 'Completed' && campaign.endDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">End Date:</span>
+                    <span className="text-white font-medium">{formatDate(campaign.endDate)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Show message if no timeline data exists */}
+            {!campaign.createdAt && !campaign.statusChangeDate && (
+              <div className="bg-dark-900/30 rounded-xl p-5 border border-dark-700 text-center">
+                <p className="text-gray-400 text-sm">No timeline data available for this campaign.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t border-dark-700 bg-dark-900 flex justify-end">
+            <button 
+              onClick={onClose} 
+              className="px-5 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -700,9 +939,9 @@ const Campaigns: React.FC = () => {
                }} className="px-4 py-2 rounded-lg text-white hover:bg-dark-800 transition-colors text-sm font-medium">Cancel</button>
                {/* Show Update Campaign button only when in edit mode AND there are changes, or when adding new campaign */}
                {(!isEditMode || hasChanges) && (
-                 <button type="submit" className="px-6 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20">
+               <button type="submit" className="px-6 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20">
                      {isEditMode ? 'Update Campaign' : 'Create Campaign'}
-                 </button>
+               </button>
                )}
             </div>
           </form>
@@ -999,7 +1238,7 @@ const Campaigns: React.FC = () => {
                     <th className="px-6 py-4 font-semibold">Influencer</th>
                     <th className="px-6 py-4 font-semibold">Date</th>
                     <th className="px-6 py-4 font-semibold">Amount</th>
-                    <th className="px-6 py-4 font-semibold">Approval Status</th>
+                    <th className="px-6 py-4 font-semibold">Campaign Status</th>
                     <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
                 </thead>
@@ -1064,7 +1303,10 @@ const Campaigns: React.FC = () => {
                                 <option value="Pending">Pending</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Rejected">Rejected</option>
-                                <option value="Completed">Completed</option>
+                                {/* Only show Completed option if status is Approved or already Completed */}
+                                {(campaign.status === 'Approved' || campaign.status === 'Completed') && (
+                                    <option value="Completed">Completed</option>
+                                )}
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                             </div>
@@ -1078,27 +1320,41 @@ const Campaigns: React.FC = () => {
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-2">
                                 <div className="group/tooltip relative inline-block">
-                                    <button 
-                                        disabled={!editable || campaign.status !== 'Approved'}
-                                        onClick={() => initiateLogCompletion(campaign)}
-                                        className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                                            editable && campaign.status === 'Approved'
-                                            ? 'bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white' 
-                                            : 'bg-dark-900 text-gray-600 cursor-not-allowed'
-                                        }`}
-                                    >
-                                        {campaign.status === 'Completed' ? 'Completed' : 'Log Completion'}
-                                    </button>
+                                    {campaign.status === 'Pending' && editable ? (
+                                        <button 
+                                            onClick={() => initiateStatusChange(campaign, 'Approved')}
+                                            className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white"
+                                        >
+                                            Approve
+                                        </button>
+                                    ) : campaign.status === 'Approved' && editable ? (
+                                        <button 
+                                            onClick={() => initiateLogCompletion(campaign)}
+                                            className="text-xs font-medium px-3 py-1.5 rounded-md transition-colors bg-primary-600/20 text-primary-400 hover:bg-primary-600 hover:text-white"
+                                        >
+                                            Complete
+                                        </button>
+                                    ) : campaign.status === 'Rejected' ? (
+                                        <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-dark-900 text-gray-500 cursor-not-allowed">
+                                            No Action required
+                                        </span>
+                                    ) : campaign.status === 'Completed' ? (
+                                        <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-dark-900 text-gray-500 cursor-not-allowed">
+                                            Completed
+                                        </span>
+                                    ) : (
+                                        <button 
+                                            disabled
+                                            className="text-xs font-medium px-3 py-1.5 rounded-md bg-dark-900 text-gray-600 cursor-not-allowed"
+                                        >
+                                            {campaign.status === 'Pending' ? 'Approve' : 'Complete'}
+                                        </button>
+                                    )}
                                     
                                     {/* Tooltip explaining why it's disabled */}
-                                    {(!editable || campaign.status !== 'Approved') && (
+                                    {(!editable && campaign.status !== 'Rejected' && campaign.status !== 'Completed') && (
                                         <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-black border border-dark-700 text-gray-300 text-xs rounded shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-10">
-                                            {!editable 
-                                                ? (role === 'executive' ? 'Read-only: Observer Mode' : `Read-only: Owned by ${campaign.department}`)
-                                                : campaign.status === 'Completed' 
-                                                ? 'Campaign already completed'
-                                                : 'Campaign must be Approved first'
-                                            }
+                                            {role === 'executive' ? 'Read-only: Observer Mode' : `Read-only: Owned by ${campaign.department}`}
                                         </div>
                                     )}
                                 </div>
@@ -1385,6 +1641,16 @@ const Campaigns: React.FC = () => {
              campaign={selectedCampaign} 
              onClose={() => setSelectedCampaign(null)} 
           />
+      )}
+
+      {campaignForSummary && (
+        <CampaignSummaryModal
+            campaign={campaignForSummary}
+            onClose={() => {
+              setCampaignForSummary(null);
+              setIsCampaignSummaryModalOpen(false);
+            }}
+        />
       )}
     </>
   );

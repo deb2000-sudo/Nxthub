@@ -482,12 +482,12 @@ export const firebaseUsersService = {
             if (userEmail === searchEmail) {
                // Map document name to role (admins -> admin)
                const role = roleDoc.slice(0, -1) as Role; 
-               console.log(`✅ Found user in root document: ${roleDoc}`, { email: data.email, role });
+               // console.log(`✅ Found user in root document: ${roleDoc}`, { email: data.email, role });
                return { id: roleDoc, ...data, role } as User;
             }
           }
         } catch (rootError: any) {
-          console.warn(`Error checking root document ${roleDoc}:`, rootError.code || rootError.message);
+          // console.warn(`Error checking root document ${roleDoc}:`, rootError.code || rootError.message);
           // Continue to next role
         }
       }
@@ -503,16 +503,16 @@ export const firebaseUsersService = {
           if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const userData = doc.data();
-            console.log(`✅ Found user in subcollection: ${roleDoc}/created_users`, { email: userData.email, id: doc.id });
+            // console.log(`✅ Found user in subcollection: ${roleDoc}/created_users`, { email: userData.email, id: doc.id });
             return { id: doc.id, ...userData } as User;
           }
         } catch (subError: any) {
-          console.warn(`Error checking subcollection ${roleDoc}/created_users:`, subError.code || subError.message);
+          // console.warn(`Error checking subcollection ${roleDoc}/created_users:`, subError.code || subError.message);
           // Continue to next role
         }
       }
       
-      console.log(`❌ User not found with email: ${email} (searched as: ${searchEmail})`);
+      // console.log(`❌ User not found with email: ${email} (searched as: ${searchEmail})`);
       return null;
     } catch (error: any) {
       console.error('Error fetching user by email:', error);
@@ -603,13 +603,13 @@ export const firebaseUsersService = {
         if (docSnap.exists()) {
           await deleteDoc(docRef);
           deleted = true;
-          console.log(`Deleted user ${userId} from ${roleDoc}`);
+          // console.log(`Deleted user ${userId} from ${roleDoc}`);
           break;
         }
       }
       
       if (!deleted) {
-         console.warn(`User ${userId} not found for deletion`);
+         // console.warn(`User ${userId} not found for deletion`);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -621,7 +621,7 @@ export const firebaseUsersService = {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
-      console.log('Initializing root user documents...');
+      // console.log('Initializing root user documents...');
       
       // 1. Admin Root Doc
       await setDoc(doc(db, COLLECTIONS.USERS, 'admins'), {
@@ -652,7 +652,7 @@ export const firebaseUsersService = {
         createdAt: new Date().toISOString()
       });
 
-      console.log('✅ Initialized root user documents');
+      // console.log('✅ Initialized root user documents');
     } catch (error) {
       console.error('Error initializing mock data:', error);
       throw error;
