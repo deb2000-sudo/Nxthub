@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { Campaign, CampaignStatus, Department, Influencer } from '../types';
 import { dataService } from '../services/dataService';
@@ -64,6 +64,13 @@ const Campaigns: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  // Status Change Modal State
+  const [isStatusChangeModalOpen, setIsStatusChangeModalOpen] = useState(false);
+  const [campaignToChangeStatus, setCampaignToChangeStatus] = useState<Campaign | null>(null);
+  const [newStatus, setNewStatus] = useState<CampaignStatus | null>(null);
+  const [statusChangeSummary, setStatusChangeSummary] = useState('');
+  const [statusChangeError, setStatusChangeError] = useState('');
+
   // Completion Form Data
   const [compData, setCompData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -105,25 +112,64 @@ const Campaigns: React.FC = () => {
     return false;
   };
 
-  const handleStatusChange = async (campaignId: string, newStatus: CampaignStatus) => {
-    const campaignToEdit = campaigns.find(c => c.id === campaignId);
-    
-    if (!campaignToEdit) return;
+  const initiateStatusChange = (campaign: Campaign, status: CampaignStatus) => {
+    // Prevent reversing approved/rejected/completed statuses
+    if (campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')) {
+      setToast({ message: 'Cannot change status once it has been Approved, Rejected, or Completed.', type: 'error' });
+      return;
+    }
 
-    if (!canEditCampaign(campaignToEdit)) {
-        setToast({ message: `Unauthorized: Read-only access.`, type: 'error' });
-        return;
+    // Only allow changing from Pending to Approved, Rejected, or Completed
+    if (campaign.status !== 'Pending') {
+      setToast({ message: 'Status can only be changed from Pending.', type: 'error' });
+      return;
+    }
+
+    if (!canEditCampaign(campaign)) {
+      setToast({ message: `Unauthorized: Read-only access.`, type: 'error' });
+      return;
+    }
+
+    setCampaignToChangeStatus(campaign);
+    setNewStatus(status);
+    setStatusChangeSummary('');
+    setStatusChangeError('');
+    setIsStatusChangeModalOpen(true);
+  };
+
+  const handleStatusChange = async () => {
+    if (!campaignToChangeStatus || !newStatus) return;
+
+    // Validate summary is provided
+    if (!statusChangeSummary.trim()) {
+      setStatusChangeError('Summary is required for status change');
+      return;
     }
 
     try {
-      const updatedList = await dataService.updateCampaignStatus(campaignId, newStatus);
+      const updatedList = await dataService.updateCampaignStatus(
+        campaignToChangeStatus.id, 
+        newStatus,
+        statusChangeSummary.trim(),
+        currentUserEmail || undefined
+      );
       setCampaigns(updatedList);
       setToast({ message: `Campaign status updated to ${newStatus}`, type: 'success' });
       
       // Update selected campaign if open
-      if (selectedCampaign && selectedCampaign.id === campaignId) {
-          setSelectedCampaign({ ...selectedCampaign, status: newStatus });
+      if (selectedCampaign && selectedCampaign.id === campaignToChangeStatus.id) {
+          const updatedCampaign = updatedList.find(c => c.id === campaignToChangeStatus.id);
+          if (updatedCampaign) {
+            setSelectedCampaign(updatedCampaign);
+          }
       }
+
+      // Close modal and reset state
+      setIsStatusChangeModalOpen(false);
+      setCampaignToChangeStatus(null);
+      setNewStatus(null);
+      setStatusChangeSummary('');
+      setStatusChangeError('');
     } catch (error) {
       console.error('Error updating campaign status:', error);
       setToast({ message: 'Failed to update campaign status', type: 'error' });
@@ -285,22 +331,64 @@ const Campaigns: React.FC = () => {
                             <CheckCircle2 size={12} /> Approval Status
                         </h3>
                         {editable ? (
-                            <div className="relative">
-                                <select
-                                    value={campaign.status}
-                                    onChange={(e) => handleStatusChange(campaign.id, e.target.value as CampaignStatus)}
-                                    className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border bg-dark-900 border-dark-600 text-white focus:outline-none focus:border-primary-500 transition-colors"
-                                >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                    <option value="Completed" disabled>Completed</option>
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                            <div className="space-y-3">
+                                <div className="relative">
+                                    <select
+                                        value={campaign.status}
+                                        onChange={(e) => {
+                                          const selectedStatus = e.target.value as CampaignStatus;
+                                          if (selectedStatus !== campaign.status) {
+                                            initiateStatusChange(campaign, selectedStatus);
+                                          }
+                                        }}
+                                        disabled={campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')}
+                                        className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border bg-dark-900 border-dark-600 text-white focus:outline-none focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <option value="Pending">Pending</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Rejected">Rejected</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                                </div>
+                                {/* Show status change info if status was changed from Pending */}
+                                {campaign.statusChangeDate && campaign.statusChangeSummary && (
+                                    <div className="pt-3 border-t border-dark-700 space-y-2">
+                                        <div className="text-xs text-gray-500">
+                                            Status changed on: <span className="text-white">{new Date(campaign.statusChangeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            Summary: <span className="text-white text-sm">{campaign.statusChangeSummary}</span>
+                                        </div>
+                                        {campaign.statusChangedBy && (
+                                            <div className="text-xs text-gray-500">
+                                                Changed by: <span className="text-white">{campaign.statusChangedBy}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div className="text-sm text-gray-400 italic">
-                                Read-only access
+                            <div className="space-y-2">
+                                <div className="text-sm text-gray-400 italic">
+                                    Read-only access
+                                </div>
+                                {/* Show status change info even in read-only mode */}
+                                {campaign.statusChangeDate && campaign.statusChangeSummary && (
+                                    <div className="pt-3 border-t border-dark-700 space-y-2">
+                                        <div className="text-xs text-gray-500">
+                                            Status changed on: <span className="text-white">{new Date(campaign.statusChangeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            Summary: <span className="text-white text-sm">{campaign.statusChangeSummary}</span>
+                                        </div>
+                                        {campaign.statusChangedBy && (
+                                            <div className="text-xs text-gray-500">
+                                                Changed by: <span className="text-white">{campaign.statusChangedBy}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -359,16 +447,90 @@ const Campaigns: React.FC = () => {
     );
   };
 
-  // --- Modal: Create Campaign (Log Campaign) ---
+  // --- Modal: Create Campaign ---
   const CreateCampaignModal = () => {
+    const isEditMode = !!editingCampaign;
+
+    // Helper function to convert ISO date to yyyy-MM-dd format for date input
+    const formatDateForInput = (dateString: string | undefined): string => {
+      if (!dateString) return '';
+      try {
+        const date = new Date(dateString);
+        // Check if date is valid
+        if (isNaN(date.getTime())) return '';
+        // Return in yyyy-MM-dd format
+        return date.toISOString().split('T')[0];
+      } catch (error) {
+        // If already in yyyy-MM-dd format, return as is
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return dateString;
+        }
+        return '';
+      }
+    };
+
+    // Store original campaign data for comparison
+    const getOriginalFormData = useMemo(() => {
+      if (!editingCampaign || !isEditMode) return null;
+      const formattedDate = formatDateForInput(editingCampaign.startDate);
+      return {
+        influencerId: editingCampaign.influencerId || '',
+        name: editingCampaign.name || '',
+        department: editingCampaign.department || '',
+        amount: editingCampaign.budget?.toString() || '',
+        date: formattedDate,
+        deliverables: editingCampaign.deliverables || ''
+      };
+    }, [editingCampaign, isEditMode]);
+
     const [formData, setFormData] = useState({
       influencerId: editingCampaign?.influencerId || '',
       name: editingCampaign?.name || '',
       department: editingCampaign?.department || ((role === 'manager' || role === 'executive') && userDept ? userDept : ''),
       amount: editingCampaign?.budget?.toString() || '',
-      date: editingCampaign?.startDate || '',
+      date: formatDateForInput(editingCampaign?.startDate),
       deliverables: editingCampaign?.deliverables || ''
     });
+
+    // Check if form has been modified
+    const hasChanges = useMemo(() => {
+      if (!isEditMode || !getOriginalFormData) return false;
+      
+      const original = getOriginalFormData;
+      
+      return (
+        formData.influencerId !== original.influencerId ||
+        formData.name !== original.name ||
+        formData.department !== original.department ||
+        formData.amount !== original.amount ||
+        formData.date !== original.date ||
+        formData.deliverables !== original.deliverables
+      );
+    }, [formData, getOriginalFormData, isEditMode]);
+
+    // Reset form when editing campaign changes
+    useEffect(() => {
+      if (editingCampaign) {
+        setFormData({
+          influencerId: editingCampaign.influencerId || '',
+          name: editingCampaign.name || '',
+          department: editingCampaign.department || ((role === 'manager' || role === 'executive') && userDept ? userDept : ''),
+          amount: editingCampaign.budget?.toString() || '',
+          date: formatDateForInput(editingCampaign.startDate),
+          deliverables: editingCampaign.deliverables || ''
+        });
+      } else {
+        // Reset form when creating new campaign
+        setFormData({
+          influencerId: '',
+          name: '',
+          department: ((role === 'manager' || role === 'executive') && userDept ? userDept : ''),
+          amount: '',
+          date: '',
+          deliverables: ''
+        });
+      }
+    }, [editingCampaign, role, userDept]);
 
     const deptFormOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
     
@@ -395,7 +557,8 @@ const Campaigns: React.FC = () => {
         startDate: formData.date,
         endDate: editingCampaign?.endDate || '', // Preserve existing endDate on edit, empty for new campaigns
         deliverables: formData.deliverables,
-        createdBy: editingCampaign ? editingCampaign.createdBy : (currentUserEmail || undefined)
+        createdBy: editingCampaign ? editingCampaign.createdBy : (currentUserEmail || undefined),
+        createdAt: editingCampaign ? editingCampaign.createdAt : new Date().toISOString() // Set creation date only for new campaigns
       };
 
       try {
@@ -430,7 +593,7 @@ const Campaigns: React.FC = () => {
         >
           <div className="flex items-center justify-between p-6 pb-2">
              <div>
-                 <h2 className="text-xl font-bold text-white">{editingCampaign ? 'Edit Campaign' : 'Log Campaign'}</h2>
+                 <h2 className="text-xl font-bold text-white">{editingCampaign ? 'Edit Campaign' : 'Create Campaign'}</h2>
                  <p className="text-gray-400 text-xs mt-1">{editingCampaign ? 'Update campaign details.' : 'Record a new campaign association with an influencer.'}</p>
              </div>
              <button onClick={() => {
@@ -445,7 +608,7 @@ const Campaigns: React.FC = () => {
             
             {/* Influencer Select */}
             <div>
-               <label className="block text-sm font-medium text-gray-300 mb-1.5">Influencer (Optional)</label>
+               <label className="block text-sm font-medium text-gray-300 mb-1.5">Influencer</label>
                <SearchableSelect 
                   options={influencerOptions}
                   value={formData.influencerId}
@@ -535,9 +698,12 @@ const Campaigns: React.FC = () => {
                    setIsCreateModalOpen(false);
                    setEditingCampaign(null);
                }} className="px-4 py-2 rounded-lg text-white hover:bg-dark-800 transition-colors text-sm font-medium">Cancel</button>
-               <button type="submit" className="px-6 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20">
-                   {editingCampaign ? 'Update Campaign' : 'Log Campaign'}
-               </button>
+               {/* Show Update Campaign button only when in edit mode AND there are changes, or when adding new campaign */}
+               {(!isEditMode || hasChanges) && (
+                 <button type="submit" className="px-6 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20">
+                     {isEditMode ? 'Update Campaign' : 'Create Campaign'}
+                 </button>
+               )}
             </div>
           </form>
         </div>
@@ -886,13 +1052,19 @@ const Campaigns: React.FC = () => {
                             <div className="relative inline-block w-36">
                             <select
                                 value={campaign.status}
-                                onChange={(e) => handleStatusChange(campaign.id, e.target.value as CampaignStatus)}
-                                className="w-full appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-full border bg-dark-900 border-dark-700 text-white focus:outline-none focus:border-primary-500 cursor-pointer transition-colors"
+                                onChange={(e) => {
+                                  const selectedStatus = e.target.value as CampaignStatus;
+                                  if (selectedStatus !== campaign.status) {
+                                    initiateStatusChange(campaign, selectedStatus);
+                                  }
+                                }}
+                                disabled={campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')}
+                                className="w-full appearance-none pl-3 pr-8 py-1.5 text-xs font-semibold rounded-full border bg-dark-900 border-dark-700 text-white focus:outline-none focus:border-primary-500 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <option value="Pending">Pending</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Rejected">Rejected</option>
-                                <option value="Completed" disabled>Completed</option> 
+                                <option value="Completed">Completed</option>
                             </select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
                             </div>
@@ -1052,6 +1224,119 @@ const Campaigns: React.FC = () => {
       )}
       
       {isConfirmCompletionOpen && <ConfirmCompletionModal />}
+
+      {/* Status Change Modal */}
+      {isStatusChangeModalOpen && campaignToChangeStatus && newStatus && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+          onClick={() => {
+            setIsStatusChangeModalOpen(false);
+            setCampaignToChangeStatus(null);
+            setNewStatus(null);
+            setStatusChangeSummary('');
+            setStatusChangeError('');
+          }}
+        >
+          <div 
+            className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-md relative animate-in fade-in zoom-in duration-200 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 pb-2">
+              <div>
+                <h2 className="text-xl font-bold text-white">Change Campaign Status</h2>
+                <p className="text-gray-400 text-xs mt-1">
+                  Update status for "{campaignToChangeStatus.name}" to {newStatus}
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsStatusChangeModalOpen(false);
+                  setCampaignToChangeStatus(null);
+                  setNewStatus(null);
+                  setStatusChangeSummary('');
+                  setStatusChangeError('');
+                }} 
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleStatusChange();
+              }} 
+              className="p-6 space-y-5"
+            >
+              {/* Current Status */}
+              <div className="bg-dark-800/50 rounded-lg p-3 border border-dark-700">
+                <div className="text-xs text-gray-500 mb-1">Current Status</div>
+                <div className="text-white font-medium">{campaignToChangeStatus.status}</div>
+              </div>
+
+              {/* New Status */}
+              <div className="bg-primary-500/10 rounded-lg p-3 border border-primary-500/30">
+                <div className="text-xs text-primary-400 mb-1">New Status</div>
+                <div className="text-white font-medium">{newStatus}</div>
+              </div>
+
+              {/* Summary/Reason */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                  Summary / Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={statusChangeSummary}
+                  onChange={(e) => {
+                    setStatusChangeSummary(e.target.value);
+                    if (statusChangeError) setStatusChangeError('');
+                  }}
+                  placeholder={
+                    newStatus === 'Approved' 
+                      ? 'Please provide a reason for approving this campaign...'
+                      : newStatus === 'Rejected'
+                      ? 'Please provide a reason for rejecting this campaign...'
+                      : 'Please provide a summary for completing this campaign...'
+                  }
+                  className={`w-full bg-dark-900 border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-1 resize-none text-sm placeholder-gray-600 ${
+                    statusChangeError 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-dark-700 focus:border-primary-600 focus:ring-primary-600'
+                  }`}
+                />
+                {statusChangeError && (
+                  <p className="text-red-500 text-xs mt-1">{statusChangeError}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsStatusChangeModalOpen(false);
+                    setCampaignToChangeStatus(null);
+                    setNewStatus(null);
+                    setStatusChangeSummary('');
+                    setStatusChangeError('');
+                  }} 
+                  className="px-4 py-2 rounded-lg text-white hover:bg-dark-800 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-6 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20"
+                >
+                  Update Status
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (

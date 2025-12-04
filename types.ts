@@ -71,4 +71,9 @@ export interface Campaign {
   deliverables?: string;
   lastUpdated?: string; // Timestamp for sorting recent activity
   createdBy?: string; // Email of the user who created this campaign
+  createdAt?: string; // Date when campaign was created
+  // Status change tracking
+  statusChangeDate?: string; // Date when status was changed from Pending
+  statusChangeSummary?: string; // Summary/reason for status change
+  statusChangedBy?: string; // Email of the user who changed the status
 }

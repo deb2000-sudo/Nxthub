@@ -30,13 +30,29 @@ const localStorageService = {
     localStorage.setItem(CAMPAIGNS_KEY, JSON.stringify(campaigns));
   },
 
-  updateCampaignStatus: (id: string, status: CampaignStatus): Campaign[] => {
+  updateCampaignStatus: (id: string, status: CampaignStatus, summary?: string, changedBy?: string): Campaign[] => {
     const campaigns = localStorageService.getCampaigns();
-    const updated = campaigns.map(c => c.id === id ? { 
-      ...c, 
-      status, 
-      lastUpdated: new Date().toISOString() 
-    } : c);
+    const updated = campaigns.map(c => {
+      if (c.id === id) {
+        const updateData: any = {
+          ...c,
+          status,
+          lastUpdated: new Date().toISOString()
+        };
+        // Only set status change tracking if changing from Pending
+        if (c.status === 'Pending' && (status === 'Approved' || status === 'Rejected' || status === 'Completed')) {
+          updateData.statusChangeDate = new Date().toISOString();
+          if (summary) {
+            updateData.statusChangeSummary = summary;
+          }
+          if (changedBy) {
+            updateData.statusChangedBy = changedBy;
+          }
+        }
+        return updateData;
+      }
+      return c;
+    });
     localStorageService.saveCampaigns(updated);
     return updated;
   },
@@ -137,16 +153,16 @@ export const dataService = {
     }
   },
 
-  updateCampaignStatus: async (id: string, status: CampaignStatus): Promise<Campaign[]> => {
+  updateCampaignStatus: async (id: string, status: CampaignStatus, summary?: string, changedBy?: string): Promise<Campaign[]> => {
     if (USE_MOCK_DATA) {
-      return localStorageService.updateCampaignStatus(id, status);
+      return localStorageService.updateCampaignStatus(id, status, summary, changedBy);
     }
     try {
-      await firebaseCampaignsService.updateCampaignStatus(id, status);
+      await firebaseCampaignsService.updateCampaignStatus(id, status, summary, changedBy);
       return await firebaseCampaignsService.getCampaigns();
     } catch (error) {
       console.error('Firebase error, falling back to localStorage:', error);
-      return localStorageService.updateCampaignStatus(id, status);
+      return localStorageService.updateCampaignStatus(id, status, summary, changedBy);
     }
   },
 
