@@ -64,6 +64,8 @@ export const firebaseCampaignsService = {
         startDate: timestampToISO(doc.data().startDate),
         endDate: timestampToISO(doc.data().endDate),
         completionDate: doc.data().completionDate ? timestampToISO(doc.data().completionDate) : undefined,
+        statusChangeDate: doc.data().statusChangeDate ? timestampToISO(doc.data().statusChangeDate) : undefined,
+        createdAt: doc.data().createdAt ? timestampToISO(doc.data().createdAt) : undefined,
         lastUpdated: doc.data().lastUpdated ? timestampToISO(doc.data().lastUpdated) : new Date().toISOString(),
       })) as Campaign[];
     } catch (error) {
@@ -90,6 +92,8 @@ export const firebaseCampaignsService = {
         startDate: timestampToISO(data.startDate),
         endDate: timestampToISO(data.endDate),
         completionDate: data.completionDate ? timestampToISO(data.completionDate) : undefined,
+        statusChangeDate: data.statusChangeDate ? timestampToISO(data.statusChangeDate) : undefined,
+        createdAt: data.createdAt ? timestampToISO(data.createdAt) : undefined,
         lastUpdated: data.lastUpdated ? timestampToISO(data.lastUpdated) : new Date().toISOString(),
       } as Campaign;
     } catch (error) {
@@ -102,10 +106,16 @@ export const firebaseCampaignsService = {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
+      // Always set createdAt for new campaigns - use provided value or current time
+      const createdAtTimestamp = campaign.createdAt 
+        ? isoToTimestamp(campaign.createdAt) 
+        : Timestamp.now();
+
       const campaignData: any = {
         ...campaign,
         startDate: isoToTimestamp(campaign.startDate),
         lastUpdated: Timestamp.now(),
+        createdAt: createdAtTimestamp, // Always set creation date
       };
       
       // Only add endDate if it exists
@@ -129,15 +139,35 @@ export const firebaseCampaignsService = {
     }
   },
 
-  async updateCampaignStatus(id: string, status: CampaignStatus): Promise<Campaign> {
+  async updateCampaignStatus(id: string, status: CampaignStatus, summary?: string, changedBy?: string): Promise<Campaign> {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
       const campaignRef = doc(db, COLLECTIONS.CAMPAIGNS, id);
-      await updateDoc(campaignRef, {
+      const campaignDoc = await getDoc(campaignRef);
+      
+      if (!campaignDoc.exists()) {
+        throw new Error('Campaign not found');
+      }
+
+      const currentCampaign = campaignDoc.data() as Campaign;
+      const updateData: any = {
         status,
         lastUpdated: Timestamp.now(),
-      });
+      };
+
+      // Only set status change tracking if changing from Pending
+      if (currentCampaign.status === 'Pending' && (status === 'Approved' || status === 'Rejected' || status === 'Completed')) {
+        updateData.statusChangeDate = Timestamp.now();
+        if (summary) {
+          updateData.statusChangeSummary = summary;
+        }
+        if (changedBy) {
+          updateData.statusChangedBy = changedBy;
+        }
+      }
+
+      await updateDoc(campaignRef, updateData);
       
       const updated = await this.getCampaignById(id);
       if (!updated) throw new Error('Campaign not found after update');
@@ -184,6 +214,11 @@ export const firebaseCampaignsService = {
       if (updates.startDate) updateData.startDate = isoToTimestamp(updates.startDate);
       if (updates.endDate) updateData.endDate = isoToTimestamp(updates.endDate);
       if (updates.completionDate) updateData.completionDate = isoToTimestamp(updates.completionDate);
+      
+      // Preserve createdAt if it exists in updates (convert to timestamp)
+      if (updates.createdAt) {
+        updateData.createdAt = isoToTimestamp(updates.createdAt);
+      }
       
       // Remove id from updates
       delete updateData.id;

@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Influencer, Department } from '../types';
+import { Influencer, Department, Campaign } from '../types';
 import { dataService } from '../services/dataService';
 import { firebaseDepartmentsService, firebaseRequestsService, firebaseInfluencersService } from '../services/firebaseService';
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
+import SimpleSelect from '../components/SimpleSelect';
 import MultiSelect from '../components/MultiSelect';
-import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Search, Filter, Grid, List, Plus, X, Instagram, Youtube, ChevronDown, ChevronUp, Check, Pencil, Trash2, AlertTriangle, Users, User, Calendar, Lock, Clock, CheckCircle2, Loader2, Briefcase, IndianRupee } from 'lucide-react';
 
 // --- Component: Delete Confirmation Modal ---
 interface DeleteModalProps {
@@ -69,12 +70,11 @@ interface FormModalProps {
   editingInfluencer: Influencer | null;
   currentUserEmail: string | null;
   currentUserRole: string | null;
+  currentUserDepartment?: string;
   departments: Department[];
 }
 
-const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubmit, onDelete, editingInfluencer, currentUserEmail, currentUserRole, departments }) => {
-  if (!isOpen) return null;
-
+const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubmit, onDelete, editingInfluencer, currentUserEmail, currentUserRole, currentUserDepartment, departments }) => {
   const isEditMode = !!editingInfluencer;
   
   const availableLanguages = ['Telugu', 'Hindi', 'English', 'Tamil', 'Kannada', 'Malayalam', 'Marathi', 'Bengali', 'Gujarati', 'Punjabi'];
@@ -91,35 +91,63 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     const parts = fullMobile.split(' ');
     // Simple logic: if first part starts with +, treat as code
     if (parts.length > 1 && parts[0].startsWith('+')) {
-        return { code: parts[0], number: parts.slice(1).join(' ') };
+        return { code: '+91', number: parts.slice(1).join(' ') }; // Always use +91
     }
     return { code: '+91', number: fullMobile };
   };
 
   const initialMobile = editingInfluencer?.mobile ? splitMobile(editingInfluencer.mobile) : { code: '+91', number: '' };
 
+  // Store original influencer data for comparison
+  const getOriginalFormData = useMemo(() => {
+    if (!editingInfluencer || !isEditMode) return null;
+    const originalMobile = splitMobile(editingInfluencer.mobile || '');
+    const influencerStatus = editingInfluencer?.lastPromoBy ? 'existing' : 'new';
+    return {
+      fullName: editingInfluencer.name || '',
+      email: editingInfluencer.email || '',
+      mobileCountryCode: '+91',
+      mobileNumber: originalMobile.number,
+      pan: editingInfluencer.pan || '',
+      platform1_name: 'Instagram',
+      platform1_channel: editingInfluencer.platforms?.instagramChannel || '',
+      platform1_username: editingInfluencer.platforms?.instagram || '',
+      platform2_name: 'YouTube',
+      platform2_channel: editingInfluencer.platforms?.youtubeChannel || '',
+      platform2_username: editingInfluencer.platforms?.youtube || '',
+      category: editingInfluencer.category || '',
+      influencerType: editingInfluencer.type || '',
+      languages: editingInfluencer.language ? editingInfluencer.language.split(', ') : [] as string[],
+      influencerStatus: influencerStatus as 'new' | 'existing',
+      lastPromoBy: editingInfluencer.lastPromoBy || '',
+      lastPromoDate: editingInfluencer.lastPromoDate || '',
+      lastPricePaid: editingInfluencer.lastPricePaid?.toString() || ''
+    };
+  }, [editingInfluencer, isEditMode]);
+
   // Initial State
   const [formData, setFormData] = useState({
     fullName: editingInfluencer?.name || '',
     email: editingInfluencer?.email || '',
     
-    mobileCountryCode: initialMobile.code,
+    mobileCountryCode: '+91', // Always use +91 for India
     mobileNumber: initialMobile.number,
 
     pan: editingInfluencer?.pan || '', 
     
     platform1_name: 'Instagram',
-    platform1_channel: '',
+    platform1_channel: editingInfluencer?.platforms?.instagramChannel || '',
     platform1_username: editingInfluencer?.platforms?.instagram || '',
     
     platform2_name: 'YouTube',
-    platform2_channel: '',
+    platform2_channel: editingInfluencer?.platforms?.youtubeChannel || '',
     platform2_username: editingInfluencer?.platforms?.youtube || '',
     
     category: editingInfluencer?.category || '',
     influencerType: editingInfluencer?.type || '',
     languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
-    lastPromoBy: editingInfluencer?.lastPromoBy || '',
+    influencerStatus: isEditMode ? (editingInfluencer?.lastPromoBy ? 'existing' : 'new') : 'new' as 'new' | 'existing',
+    lastPromoBy: editingInfluencer?.lastPromoBy || (isEditMode ? '' : (currentUserDepartment || '')),
     lastPromoDate: editingInfluencer?.lastPromoDate || '',
     lastPricePaid: editingInfluencer?.lastPricePaid?.toString() || ''
   });
@@ -127,12 +155,66 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [panValidationStatus, setPanValidationStatus] = useState<'idle' | 'checking' | 'verified' | 'exists'>('idle');
 
-  // Reset validation status when modal opens/closes or editing influencer changes
+  // Check if form has been modified
+  const hasChanges = useMemo(() => {
+    if (!isEditMode || !getOriginalFormData) return false;
+    
+    const original = getOriginalFormData;
+    
+    // Compare all form fields with original data
+    const formLanguages = [...formData.languages].sort().join(', ');
+    const originalLanguages = [...original.languages].sort().join(', ');
+    
+    return (
+      formData.fullName !== original.fullName ||
+      formData.email !== original.email ||
+      formData.mobileNumber !== original.mobileNumber ||
+      formData.pan !== original.pan ||
+      formData.platform1_username !== original.platform1_username ||
+      formData.platform1_channel !== original.platform1_channel ||
+      formData.platform2_username !== original.platform2_username ||
+      formData.platform2_channel !== original.platform2_channel ||
+      formData.category !== original.category ||
+      formData.influencerType !== original.influencerType ||
+      formLanguages !== originalLanguages ||
+      formData.lastPromoBy !== original.lastPromoBy ||
+      formData.lastPromoDate !== original.lastPromoDate ||
+      formData.lastPricePaid !== original.lastPricePaid
+    );
+  }, [formData, getOriginalFormData, isEditMode]);
+
+  // Reset form when modal opens/closes or editing influencer changes
   useEffect(() => {
     if (!isOpen) {
       setPanValidationStatus('idle');
+      return;
     }
-  }, [isOpen]);
+
+    // Reset form data when modal opens or editing influencer changes
+    const initialMobile = editingInfluencer?.mobile ? splitMobile(editingInfluencer.mobile) : { code: '+91', number: '' };
+    const influencerStatus = isEditMode ? (editingInfluencer?.lastPromoBy ? 'existing' : 'new') : 'new' as 'new' | 'existing';
+    
+    setFormData({
+      fullName: editingInfluencer?.name || '',
+      email: editingInfluencer?.email || '',
+      mobileCountryCode: '+91', // Always use +91
+      mobileNumber: initialMobile.number,
+      pan: editingInfluencer?.pan || '', 
+      platform1_name: 'Instagram',
+      platform1_channel: editingInfluencer?.platforms?.instagramChannel || '',
+      platform1_username: editingInfluencer?.platforms?.instagram || '',
+      platform2_name: 'YouTube',
+      platform2_channel: editingInfluencer?.platforms?.youtubeChannel || '',
+      platform2_username: editingInfluencer?.platforms?.youtube || '',
+      category: editingInfluencer?.category || '',
+      influencerType: editingInfluencer?.type || '',
+      languages: editingInfluencer?.language ? editingInfluencer.language.split(', ') : [] as string[],
+      influencerStatus: influencerStatus,
+      lastPromoBy: editingInfluencer?.lastPromoBy || (influencerStatus === 'new' && currentUserDepartment ? currentUserDepartment : ''),
+      lastPromoDate: editingInfluencer?.lastPromoDate || '',
+      lastPricePaid: editingInfluencer?.lastPricePaid?.toString() || ''
+    });
+  }, [isOpen, editingInfluencer, isEditMode, currentUserDepartment]);
 
   // Debounced PAN validation
   useEffect(() => {
@@ -207,6 +289,23 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
         return;
     }
 
+    if (field === 'influencerStatus') {
+        setFormData(prev => {
+            const updated = { ...prev, [field]: value };
+            // If status is 'new', auto-set lastPromoBy to current user's department and clear promotion details
+            if (value === 'new') {
+                updated.lastPromoBy = currentUserDepartment || '';
+                updated.lastPromoDate = '';
+                updated.lastPricePaid = '';
+            } else if (value === 'existing') {
+                // If switching to existing, clear lastPromoBy so user can select
+                updated.lastPromoBy = '';
+            }
+            return updated;
+        });
+        return;
+    }
+
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -259,6 +358,12 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
 
     const fullMobile = `${formData.mobileCountryCode} ${formData.mobileNumber}`.trim();
 
+    // Auto-set lastPromoBy for new influencers if not already set
+    let finalLastPromoBy = formData.lastPromoBy;
+    if (formData.influencerStatus === 'new' && !finalLastPromoBy && currentUserDepartment) {
+      finalLastPromoBy = currentUserDepartment;
+    }
+
     const influencerData: Influencer = {
       id: isEditMode ? editingInfluencer.id : `new_${Date.now()}`,
       name: formData.fullName,
@@ -272,10 +377,12 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
       language: formData.languages.join(', '),
       lastPricePaid: formData.lastPricePaid ? Number(formData.lastPricePaid) : 0,
       lastPromoDate: formData.lastPromoDate,
-      lastPromoBy: formData.lastPromoBy,
+      lastPromoBy: finalLastPromoBy,
       platforms: {
         [formData.platform1_name.toLowerCase()]: formData.platform1_username,
-        ...(formData.platform2_username ? { [formData.platform2_name.toLowerCase()]: formData.platform2_username } : {})
+        ...(formData.platform1_channel ? { [`${formData.platform1_name.toLowerCase()}Channel`]: formData.platform1_channel } : {}),
+        ...(formData.platform2_username ? { [formData.platform2_name.toLowerCase()]: formData.platform2_username } : {}),
+        ...(formData.platform2_channel ? { [`${formData.platform2_name.toLowerCase()}Channel`]: formData.platform2_channel } : {})
       } as any,
       createdBy: isEditMode ? editingInfluencer.createdBy : (currentUserEmail || undefined) // Preserve owner on edit, set new on create
     };
@@ -309,20 +416,14 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
     { value: 'Agency', label: 'Agency' },
   ];
 
+  const influencerStatusOptions: Option[] = [
+    { value: 'new', label: 'New Influencer' },
+    { value: 'existing', label: 'Existing Influencer' },
+  ];
+
   const deptOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
 
-  const countryOptions: Option[] = [
-    { value: '+91', label: 'India (+91)' },
-    { value: '+1', label: 'United States (+1)' },
-    { value: '+44', label: 'United Kingdom (+44)' },
-    { value: '+65', label: 'Singapore (+65)' },
-    { value: '+61', label: 'Australia (+61)' },
-    { value: '+971', label: 'UAE (+971)' },
-    { value: '+81', label: 'Japan (+81)' },
-    { value: '+49', label: 'Germany (+49)' },
-    { value: '+33', label: 'France (+33)' },
-    { value: '+86', label: 'China (+86)' },
-  ];
+  if (!isOpen) return null;
 
   return (
     <div 
@@ -394,13 +495,8 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Mobile Number <span className="text-red-500">*</span></label>
                     <div className="flex gap-2">
-                        <div className="w-40 flex-shrink-0">
-                            <SearchableSelect 
-                                options={countryOptions}
-                                value={formData.mobileCountryCode}
-                                onChange={(val) => handleInputChange('mobileCountryCode', val)}
-                                placeholder="+91"
-                            />
+                        <div className="w-24 flex-shrink-0 flex items-center justify-center bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white">
+                            <span className="text-sm font-medium">+91</span>
                         </div>
                         <input 
                         id="input-mobileNumber"
@@ -564,39 +660,63 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
                  </div>
               </div>
 
-               {/* Details Row 4 */}
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Last Promotion By</label>
-                    <SearchableSelect 
-                         options={deptOptions}
-                         value={formData.lastPromoBy}
-                         onChange={(val) => handleInputChange('lastPromoBy', val)}
-                         placeholder="Select Dept"
-                    />
+               {/* Influencer Status - Only show when not in edit mode */}
+               {!isEditMode && (
+                 <div className="space-y-6">
+                   <div className="h-px bg-dark-700"></div>
+                   <div>
+                     <label className="block text-sm font-medium text-gray-300 mb-2">Influencer Status <span className="text-red-500">*</span></label>
+                     <SimpleSelect 
+                          options={influencerStatusOptions}
+                          value={formData.influencerStatus}
+                          onChange={(val) => handleInputChange('influencerStatus', val)}
+                          placeholder="Select Status"
+                     />
+                   </div>
                  </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Last Promotion Date</label>
-                    <div className="relative">
-                        <input 
-                          type="date" 
-                          value={formData.lastPromoDate}
-                          onChange={(e) => handleInputChange('lastPromoDate', e.target.value)}
-                          className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 [color-scheme:dark]" 
-                      />
-                    </div>
+               )}
+
+               {/* Last Promotion Details - Only show for existing influencers or in edit mode */}
+               {(isEditMode || formData.influencerStatus === 'existing') && (
+                 <div className="space-y-6">
+                   <div className="h-px bg-dark-700"></div>
+                   <div>
+                     <h3 className="text-md font-semibold text-white mb-4">Last Promotion Details</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                       <div>
+                         <label className="block text-sm font-medium text-gray-300 mb-2">Last Promotion By</label>
+                         <SearchableSelect 
+                              options={deptOptions}
+                              value={formData.lastPromoBy}
+                              onChange={(val) => handleInputChange('lastPromoBy', val)}
+                              placeholder="Select Dept"
+                         />
+                       </div>
+                       <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Last Promotion Date</label>
+                          <div className="relative">
+                              <input 
+                                type="date" 
+                                value={formData.lastPromoDate}
+                                onChange={(e) => handleInputChange('lastPromoDate', e.target.value)}
+                                className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500 [color-scheme:dark]" 
+                            />
+                          </div>
+                       </div>
+                       <div>
+                          <label className="block text-sm font-medium text-gray-300 mb-2">Last Price Paid (₹) excluding taxes</label>
+                          <input 
+                            type="text" 
+                            value={formData.lastPricePaid}
+                            onChange={(e) => handleInputChange('lastPricePaid', e.target.value)}
+                            placeholder="400000" 
+                            className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500" 
+                          />
+                       </div>
+                     </div>
+                   </div>
                  </div>
-                 <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Last Price Paid (₹) excluding taxes</label>
-                    <input 
-                      type="text" 
-                      value={formData.lastPricePaid}
-                      onChange={(e) => handleInputChange('lastPricePaid', e.target.value)}
-                      placeholder="400000" 
-                      className="w-full bg-dark-800 border border-dark-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary-500" 
-                    />
-                 </div>
-              </div>
+               )}
            </div>
         </div>
 
@@ -621,9 +741,15 @@ const InfluencerFormModal: React.FC<FormModalProps> = ({ isOpen, onClose, onSubm
              )}
 
             <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-lg border border-dark-700 text-white hover:bg-dark-800 transition-colors">Cancel</button>
-            <button type="submit" className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20">
-                 {isEditMode ? 'Save Changes' : 'Add Influencer'}
-            </button>
+            {/* Show Save Changes button only when in edit mode AND there are changes, or when adding new influencer */}
+            {(!isEditMode || hasChanges) && (
+              <button 
+                type="submit" 
+                className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20"
+              >
+                {isEditMode ? 'Save Changes' : 'Add Influencer'}
+              </button>
+            )}
         </div>
       </form>
     </div>
@@ -654,6 +780,10 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
 }) => {
   const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected' | 'revoked'>('none');
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
+  const [showCampaignSummary, setShowCampaignSummary] = useState(false);
+
+  // Check if influencer has completed any campaigns
+  const hasCompletedCampaigns = !!(influencer.lastPricePaid && influencer.lastPricePaid > 0) || !!influencer.lastPromoDate;
 
   useEffect(() => {
     let isMounted = true;
@@ -763,33 +893,56 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
           )}
       </div>
 
-      {/* Social Handles List */}
-      <div className="space-y-4 mb-8">
+      {/* Social Handles - Horizontal Layout */}
+      {(influencer.platforms?.instagram || influencer.platforms?.youtube) && (
+        <div className="flex items-center gap-6 mb-8">
           {influencer.platforms?.instagram && (
-              <div className="flex items-center gap-3 text-white">
-                  <Instagram className="text-pink-500" size={22} />
-                  <span className="font-semibold">{influencer.platforms.instagram}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm font-medium">Instagram:</span>
+              <div className="flex items-center gap-2 text-white">
+                <Instagram className="text-pink-500" size={18} />
+                <span className="font-semibold">{influencer.platforms.instagram}</span>
               </div>
+            </div>
           )}
           {influencer.platforms?.youtube && (
-              <div className="flex items-center gap-3 text-white">
-                  <Youtube className="text-red-500" size={22} />
-                  <span className="font-semibold">{influencer.platforms.youtube}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm font-medium">YouTube:</span>
+              <div className="flex items-center gap-2 text-white">
+                <Youtube className="text-red-500" size={18} />
+                <span className="font-semibold">{influencer.platforms.youtube}</span>
               </div>
+            </div>
           )}
-      </div>
+        </div>
+      )}
 
       {/* Details Data */}
       <div className="space-y-3 mb-8">
-          <div className="text-gray-300 font-medium">
-              Last Price Paid: <span className="text-white">₹{influencer.lastPricePaid?.toLocaleString('en-IN') || 'N/A'}</span>
-          </div>
-          <div className="text-gray-300 font-medium">
-              Last Promotion Date: <span className="text-white">{influencer.lastPromoDate || 'N/A'}</span>
-          </div>
-          <div className="text-gray-300 font-medium">
-              Last Promotion By: <span className="text-white">{influencer.lastPromoBy || 'N/A'}</span>
-          </div>
+          {/* Show promotion details only if influencer has completed campaigns */}
+          {hasCompletedCampaigns ? (
+            <>
+              <div className="text-gray-300 font-medium">
+                  Last Price Paid: <span className="text-white">₹{influencer.lastPricePaid?.toLocaleString('en-IN') || 'N/A'}</span>
+              </div>
+              <div className="text-gray-300 font-medium">
+                  Last Promotion Date: <span className="text-white">{influencer.lastPromoDate || 'N/A'}</span>
+              </div>
+              <div className="text-gray-300 font-medium">
+                  Last Promotion By: <span className="text-white">{influencer.lastPromoBy || 'N/A'}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-center py-4">
+              <button
+                onClick={() => setShowCampaignSummary(true)}
+                className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20 flex items-center gap-2"
+              >
+                <Briefcase size={18} />
+                View Campaign Details
+              </button>
+            </div>
+          )}
           <div className="text-gray-300 font-medium">
               Email: <span className="text-white">{influencer.email || '•••••••••'}</span>
           </div>
@@ -839,8 +992,208 @@ const InfluencerDetailsModal: React.FC<DetailsModalProps> = ({
                </button>
           </div>
       )}
+
+      {/* Campaign Summary Modal */}
+      {showCampaignSummary && (
+        <CampaignSummaryModal
+          influencer={influencer}
+          onClose={() => setShowCampaignSummary(false)}
+        />
+      )}
     </div>
   </div>
+  );
+};
+
+// --- Component: Campaign Summary Modal ---
+interface CampaignSummaryModalProps {
+  influencer: Influencer;
+  onClose: () => void;
+}
+
+const CampaignSummaryModal: React.FC<CampaignSummaryModalProps> = ({ influencer, onClose }) => {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      try {
+        setIsLoading(true);
+        const allCampaigns = await dataService.getCampaigns();
+        // Filter campaigns for this influencer
+        const influencerCampaigns = allCampaigns.filter(c => c.influencerId === influencer.id);
+        setCampaigns(influencerCampaigns);
+      } catch (error) {
+        console.error('Error loading campaigns:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCampaigns();
+  }, [influencer.id]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Completed': return 'bg-green-500/10 text-green-400 border-green-500/30';
+      case 'Approved': return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+      case 'Pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+      case 'Rejected': return 'bg-red-500/10 text-red-400 border-red-500/30';
+      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-dark-900 border border-dark-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative animate-in fade-in zoom-in duration-200 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-dark-700 flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Summary of Campaign by {influencer.name}</h2>
+            <p className="text-gray-400 text-sm mt-1">All campaign activities and details</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Social Handles - Horizontal */}
+        {(influencer.platforms?.instagram || influencer.platforms?.youtube) && (
+          <div className="px-6 pt-4 pb-2 border-b border-dark-700">
+            <div className="flex items-center gap-6">
+              {influencer.platforms?.instagram && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-sm font-medium">Instagram:</span>
+                  <div className="flex items-center gap-2 text-white">
+                    <Instagram className="text-pink-500" size={18} />
+                    <span className="font-semibold">{influencer.platforms.instagram}</span>
+                  </div>
+                </div>
+              )}
+              {influencer.platforms?.youtube && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 text-sm font-medium">YouTube:</span>
+                  <div className="flex items-center gap-2 text-white">
+                    <Youtube className="text-red-500" size={18} />
+                    <span className="font-semibold">{influencer.platforms.youtube}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-primary-500" size={32} />
+            </div>
+          ) : campaigns.length === 0 ? (
+            <div className="text-center py-12">
+              <Briefcase className="mx-auto text-gray-500 mb-4" size={48} />
+              <p className="text-gray-400 text-lg font-medium">No campaigns found</p>
+              <p className="text-gray-500 text-sm mt-2">This influencer hasn't been assigned any campaigns yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {campaigns.map((campaign) => (
+                <div
+                  key={campaign.id}
+                  className="bg-dark-800 border border-dark-700 rounded-xl p-5 hover:border-primary-500/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-white mb-2">{campaign.name}</h3>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(campaign.status)}`}>
+                          {campaign.status}
+                        </span>
+                        <span className="text-gray-400 text-sm">
+                          <span className="text-gray-500">Department:</span> {campaign.department}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-gray-400" size={16} />
+                      <div>
+                        <span className="text-gray-500 text-xs">Start Date:</span>
+                        <span className="text-white text-sm ml-2">{formatDate(campaign.startDate)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-gray-400" size={16} />
+                      <div>
+                        <span className="text-gray-500 text-xs">End Date:</span>
+                        <span className="text-white text-sm ml-2">{formatDate(campaign.endDate)}</span>
+                      </div>
+                    </div>
+                    {campaign.completionDate && (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="text-green-400" size={16} />
+                        <div>
+                          <span className="text-gray-500 text-xs">Completed:</span>
+                          <span className="text-white text-sm ml-2">{formatDate(campaign.completionDate)}</span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <IndianRupee className="text-gray-400" size={16} />
+                      <div>
+                        <span className="text-gray-500 text-xs">Budget:</span>
+                        <span className="text-white text-sm ml-2">₹{campaign.budget?.toLocaleString('en-IN') || '0'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {campaign.deliverables && (
+                    <div className="mb-3">
+                      <span className="text-gray-500 text-xs">Deliverables:</span>
+                      <p className="text-white text-sm mt-1">{campaign.deliverables}</p>
+                    </div>
+                  )}
+
+                  {campaign.completionSummary && (
+                    <div className="mt-3 pt-3 border-t border-dark-700">
+                      <span className="text-gray-500 text-xs">Completion Summary:</span>
+                      <p className="text-gray-300 text-sm mt-1">{campaign.completionSummary}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end p-6 border-t border-dark-700 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -1267,6 +1620,7 @@ const Influencers: React.FC = () => {
         editingInfluencer={editingInfluencer}
         currentUserEmail={currentUserEmail}
         currentUserRole={currentUserRole}
+        currentUserDepartment={currentUserDepartment}
         departments={departments}
       />
       

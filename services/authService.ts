@@ -23,10 +23,16 @@ export const login = async (email: string, password: string): Promise<{ success:
       firebaseAuthSuccess = true;
       firebaseUserUid = userCredential.user.uid;
     } catch (error: any) {
-      // Only log if it's NOT an invalid credential error (which is expected for non-firebase users)
-      if (error.code !== 'auth/invalid-credential' && error.code !== 'auth/user-not-found') {
-         console.log('Firebase auth failed:', error.code);
+      // Suppress Firebase auth errors - they're expected when using custom auth
+      // Only log unexpected errors (not credential/user-not-found errors)
+      if (error.code && 
+          error.code !== 'auth/invalid-credential' && 
+          error.code !== 'auth/user-not-found' &&
+          error.code !== 'auth/wrong-password' &&
+          error.code !== 'auth/invalid-email') {
+         console.log('Firebase auth error:', error.code);
       }
+      // Silently continue to custom auth flow
     }
   }
 
@@ -44,15 +50,19 @@ export const login = async (email: string, password: string): Promise<{ success:
 
     try {
       // Fetch user data from Firestore
-      user = await firebaseUsersService.getUserByEmail(email);
+      const userData = await firebaseUsersService.getUserByEmail(email);
       
-      if (user) {
+      if (userData) {
         // Check if password matches (Custom Auth)
         // Note: In a real app, passwords should be hashed. Here we compare plaintext as requested.
-        const userData = user as any;
-        if (password && userData.password && userData.password !== password) {
+        const userWithPassword = userData as any;
+        if (password && userWithPassword.password && userWithPassword.password !== password) {
            return { success: false, message: 'Incorrect password' };
         }
+        
+        // Sanitize user object - remove password before returning
+        const { password: _, ...sanitizedUser } = userWithPassword;
+        user = sanitizedUser as User;
       } else {
         // Bootstrap Check: Allow default admin to login if DB is empty/deleted
         if (email.toLowerCase() === 'admin@brandnxtwave.co.in' && password === 'nxt@123') {
@@ -106,12 +116,35 @@ export const logout = async (): Promise<void> => {
 const SESSION_KEY = 'nxthub_session';
 
 export const saveSession = (user: User) => {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  // Create a safe session object without sensitive data (password, etc.)
+  const safeSessionData: User = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    department: user.department,
+    avatar: user.avatar
+  };
+  
+  // Explicitly remove any password field if it exists
+  const { password, ...sanitizedUser } = safeSessionData as any;
+  
+  localStorage.setItem(SESSION_KEY, JSON.stringify(sanitizedUser));
 };
 
 export const getSession = (): User | null => {
   const session = localStorage.getItem(SESSION_KEY);
-  return session ? JSON.parse(session) : null;
+  if (!session) return null;
+  
+  try {
+    const parsed = JSON.parse(session);
+    // Ensure password is never returned, even if it somehow exists in storage
+    const { password, ...safeUser } = parsed;
+    return safeUser as User;
+  } catch (error) {
+    console.error('Error parsing session:', error);
+    return null;
+  }
 };
 
 export const clearSession = () => {
