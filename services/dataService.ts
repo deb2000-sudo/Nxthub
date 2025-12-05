@@ -179,12 +179,12 @@ export const dataService = {
     }
   },
 
-  completeCampaign: async (id: string, date: string, summary: string): Promise<Campaign[]> => {
+  completeCampaign: async (id: string, date: string, summary: string, changedBy?: string): Promise<Campaign[]> => {
     if (USE_MOCK_DATA) {
       return localStorageService.completeCampaign(id, date, summary);
     }
     try {
-      await firebaseCampaignsService.completeCampaign(id, date, summary);
+      await firebaseCampaignsService.completeCampaign(id, date, summary, changedBy);
       return await firebaseCampaignsService.getCampaigns();
     } catch (error) {
       console.error('Firebase error, falling back to localStorage:', error);

@@ -6,7 +6,7 @@ import { firebaseDepartmentsService, firebaseUsersService } from '../services/fi
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
-import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil, Trash2, AlertTriangle, Play, XCircle, Check } from 'lucide-react';
 
 const Campaigns: React.FC = () => {
   const sessionUser = getSession();
@@ -255,6 +255,7 @@ const Campaigns: React.FC = () => {
   const CampaignDetailsModal = ({ campaign, onClose }: { campaign: Campaign, onClose: () => void }) => {
     const influencer = getInfluencerDetails(campaign.influencerId);
     const editable = canEditCampaign(campaign);
+    const isExecutive = role === 'executive';
 
     return (
         <div 
@@ -315,7 +316,7 @@ const Campaigns: React.FC = () => {
                         <div className="text-xs text-gray-500 mt-1">Total Budget</div>
                     </div>
                     
-                    <div className="bg-dark-900/50 rounded-xl p-4 border border-dark-700">
+                    <div className={`bg-dark-900/50 rounded-xl p-4 border border-dark-700 ${isExecutive ? 'md:col-span-2' : ''}`}>
                         <button
                             onClick={() => {
                                 setCampaignForSummary(campaign);
@@ -328,44 +329,46 @@ const Campaigns: React.FC = () => {
                         </button>
                     </div>
                     
-                    {/* Status Control */}
-                    <div className="bg-dark-900/50 rounded-xl p-4 border border-dark-700">
-                         <h3 className="text-gray-500 text-xs font-bold uppercase mb-3 flex items-center gap-2">
-                            <CheckCircle2 size={12} /> Campaign Status
-                        </h3>
-                        {editable ? (
-                            <div className="space-y-3">
-                            <div className="relative">
-                                <select
-                                    value={campaign.status}
-                                        onChange={(e) => {
-                                          const selectedStatus = e.target.value as CampaignStatus;
-                                          if (selectedStatus !== campaign.status) {
-                                            initiateStatusChange(campaign, selectedStatus);
-                                          }
-                                        }}
-                                        disabled={campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')}
-                                        className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border bg-dark-900 border-dark-600 text-white focus:outline-none focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                    {/* Only show Completed option if status is Approved or already Completed */}
-                                    {(campaign.status === 'Approved' || campaign.status === 'Completed') && (
-                                        <option value="Completed">Completed</option>
-                                    )}
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                    {/* Status Control - Hidden for executives */}
+                    {!isExecutive && (
+                        <div className="bg-dark-900/50 rounded-xl p-4 border border-dark-700">
+                             <h3 className="text-gray-500 text-xs font-bold uppercase mb-3 flex items-center gap-2">
+                                <CheckCircle2 size={12} /> Campaign Status
+                            </h3>
+                            {editable ? (
+                                <div className="space-y-3">
+                                <div className="relative">
+                                    <select
+                                        value={campaign.status}
+                                            onChange={(e) => {
+                                              const selectedStatus = e.target.value as CampaignStatus;
+                                              if (selectedStatus !== campaign.status) {
+                                                initiateStatusChange(campaign, selectedStatus);
+                                              }
+                                            }}
+                                            disabled={campaign.status !== 'Pending' && (campaign.status === 'Approved' || campaign.status === 'Rejected' || campaign.status === 'Completed')}
+                                            className="w-full appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border bg-dark-900 border-dark-600 text-white focus:outline-none focus:border-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <option value="Pending">Pending</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Rejected">Rejected</option>
+                                        {/* Only show Completed option if status is Approved or already Completed */}
+                                        {(campaign.status === 'Approved' || campaign.status === 'Completed') && (
+                                            <option value="Completed">Completed</option>
+                                        )}
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                            <div className="text-sm text-gray-400 italic">
-                                Read-only access
+                            ) : (
+                                <div className="space-y-2">
+                                <div className="text-sm text-gray-400 italic">
+                                    Read-only access
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Deliverables Section */}
@@ -424,7 +427,7 @@ const Campaigns: React.FC = () => {
   // --- Modal: Campaign Summary ---
   const CampaignSummaryModal = ({ campaign, onClose }: { campaign: Campaign, onClose: () => void }) => {
     const [createdByUser, setCreatedByUser] = useState<{ name: string; department?: string } | null>(null);
-    const [statusChangedByUser, setStatusChangedByUser] = useState<{ name: string; department?: string } | null>(null);
+    const [statusChangeUsers, setStatusChangeUsers] = useState<Map<string, { name: string; department?: string }>>(new Map());
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
     useEffect(() => {
@@ -443,23 +446,35 @@ const Campaigns: React.FC = () => {
             }
           }
 
-          // Load status changed by user
-          if (campaign.statusChangedBy) {
-            try {
-              const user = await firebaseUsersService.getUserByEmail(campaign.statusChangedBy);
-              if (user) {
-                setStatusChangedByUser({ name: user.name, department: user.department });
-              }
-            } catch (error) {
-              console.error('Error loading status changed by user:', error);
-            }
+          // Load users for all status changes
+          const userMap = new Map<string, { name: string; department?: string }>();
+          if (campaign.statusChangeHistory && campaign.statusChangeHistory.length > 0) {
+            const uniqueEmails = new Set(
+              campaign.statusChangeHistory
+                .map(entry => entry.changedBy)
+                .filter((email): email is string => !!email)
+            );
+            
+            await Promise.all(
+              Array.from(uniqueEmails).map(async (email) => {
+                try {
+                  const user = await firebaseUsersService.getUserByEmail(email);
+                  if (user) {
+                    userMap.set(email, { name: user.name, department: user.department });
+                  }
+                } catch (error) {
+                  console.error(`Error loading user ${email}:`, error);
+                }
+              })
+            );
           }
+          setStatusChangeUsers(userMap);
         } finally {
           setIsLoadingUsers(false);
         }
       };
       loadUserData();
-    }, [campaign.createdBy, campaign.statusChangedBy]);
+    }, [campaign.createdBy, campaign.statusChangeHistory]);
 
     const formatDateTime = (dateString?: string): string => {
       if (!dateString) return 'N/A';
@@ -557,108 +572,213 @@ const Campaigns: React.FC = () => {
             )}
 
             {/* Status Change History */}
-            {campaign.statusChangeDate && (
+            {(campaign.statusChangeHistory && campaign.statusChangeHistory.length > 0) || campaign.statusChangeDate ? (
               <div className="bg-dark-900/50 rounded-xl p-5 border border-dark-700">
                 <h3 className="text-gray-500 text-xs font-bold uppercase mb-4 flex items-center gap-2">
                   <CheckCircle2 size={14} /> Status Change History
                 </h3>
                 <div className="space-y-4">
-                  {/* Pending to Approved/Rejected/Completed */}
-                  {campaign.status !== 'Pending' && campaign.statusChangeDate && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">
-                          Status Changed: Pending → {campaign.status}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          <div className="mb-1">
-                            <span className="text-gray-500">Date & Time:</span>{' '}
-                            <span className="text-white">{formatDateTime(campaign.statusChangeDate)}</span>
-                          </div>
-                          {campaign.statusChangedBy && (
-                            <div className="mb-1">
-                              <span className="text-gray-500">Changed By:</span>{' '}
-                              <span className="text-white">
-                                {isLoadingUsers ? 'Loading...' : (statusChangedByUser?.name || campaign.statusChangedBy)}
-                              </span>
-                              {statusChangedByUser?.department && (
-                                <span className="text-gray-500 ml-2">({statusChangedByUser.department})</span>
+                  {/* Display all status changes from history */}
+                  {campaign.statusChangeHistory && campaign.statusChangeHistory.length > 0 ? (
+                    campaign.statusChangeHistory.map((entry, index) => {
+                      const user = entry.changedBy ? statusChangeUsers.get(entry.changedBy) : null;
+                      const isCompletion = entry.toStatus === 'Completed';
+                      const dotColor = isCompletion 
+                        ? 'bg-green-500' 
+                        : entry.toStatus === 'Approved' 
+                        ? 'bg-blue-500' 
+                        : entry.toStatus === 'Rejected' 
+                        ? 'bg-red-500' 
+                        : 'bg-yellow-500';
+                      
+                      return (
+                        <div key={index} className="flex items-start gap-3">
+                          <div className={`w-2 h-2 rounded-full ${dotColor} mt-2`}></div>
+                          <div className="flex-1">
+                            {isCompletion ? (
+                              <div className="text-white font-medium mb-1">Campaign Completed</div>
+                            ) : (
+                              <div className="text-white font-medium mb-1">
+                                Status Changed: {entry.fromStatus} → {entry.toStatus}
+                              </div>
+                            )}
+                            <div className="text-sm text-gray-400">
+                              {isCompletion ? (
+                                <>
+                                  <div className="mb-1">
+                                    <span className="text-gray-500">Date & Time:</span>{' '}
+                                    <span className="text-white">{formatDateTime(entry.changedAt)}</span>
+                                  </div>
+                                  {entry.changedBy && (
+                                    <div className="mb-1">
+                                      <span className="text-gray-500">Changed By:</span>{' '}
+                                      <span className="text-white">
+                                        {isLoadingUsers ? 'Loading...' : (user?.name || entry.changedBy)}
+                                      </span>
+                                      {user?.department && (
+                                        <span className="text-gray-500 ml-2">({user.department})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {entry.summary && (
+                                    <div className="mt-2 pt-2 border-t border-dark-700">
+                                      <span className="text-gray-500">Completion Summary:</span>
+                                      <div className="text-white mt-1 italic">{entry.summary}</div>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <div className="mb-1">
+                                    <span className="text-gray-500">Date & Time:</span>{' '}
+                                    <span className="text-white">{formatDateTime(entry.changedAt)}</span>
+                                  </div>
+                                  {entry.changedBy && (
+                                    <div className="mb-1">
+                                      <span className="text-gray-500">Changed By:</span>{' '}
+                                      <span className="text-white">
+                                        {isLoadingUsers ? 'Loading...' : (user?.name || entry.changedBy)}
+                                      </span>
+                                      {user?.department && (
+                                        <span className="text-gray-500 ml-2">({user.department})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {entry.summary && (
+                                    <div className="mt-2 pt-2 border-t border-dark-700">
+                                      <span className="text-gray-500">Summary:</span>
+                                      <div className="text-white mt-1 italic">{entry.summary}</div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </div>
-                          )}
-                          {campaign.statusChangeSummary && (
-                            <div className="mt-2 pt-2 border-t border-dark-700">
-                              <span className="text-gray-500">Summary:</span>
-                              <div className="text-white mt-1 italic">{campaign.statusChangeSummary}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Completion (if status is Completed) */}
-                  {campaign.status === 'Completed' && campaign.completionDate && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">Campaign Completed</div>
-                        <div className="text-sm text-gray-400">
-                          <div>
-                            <span className="text-gray-500">Completion Date:</span>{' '}
-                            <span className="text-white">{formatDate(campaign.completionDate)}</span>
                           </div>
-                          {campaign.completionSummary && (
-                            <div className="mt-2 pt-2 border-t border-dark-700">
-                              <span className="text-gray-500">Completion Summary:</span>
-                              <div className="text-white mt-1 italic">{campaign.completionSummary}</div>
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })
+                  ) : (
+                    // Fallback to old format for backward compatibility
+                    <>
+                      {campaign.status !== 'Pending' && campaign.statusChangeDate && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                          <div className="flex-1">
+                            <div className="text-white font-medium mb-1">
+                              Status Changed: Pending → {campaign.status}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              <div className="mb-1">
+                                <span className="text-gray-500">Date & Time:</span>{' '}
+                                <span className="text-white">{formatDateTime(campaign.statusChangeDate)}</span>
+                              </div>
+                              {campaign.statusChangedBy && (
+                                <div className="mb-1">
+                                  <span className="text-gray-500">Changed By:</span>{' '}
+                                  <span className="text-white">{campaign.statusChangedBy}</span>
+                                </div>
+                              )}
+                              {campaign.statusChangeSummary && (
+                                <div className="mt-2 pt-2 border-t border-dark-700">
+                                  <span className="text-gray-500">Summary:</span>
+                                  <div className="text-white mt-1 italic">{campaign.statusChangeSummary}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {campaign.status === 'Completed' && campaign.completionDate && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 rounded-full bg-green-500 mt-2"></div>
+                          <div className="flex-1">
+                            <div className="text-white font-medium mb-1">Campaign Completed</div>
+                            <div className="text-sm text-gray-400">
+                              <div className="mb-1">
+                                <span className="text-gray-500">Date & Time:</span>{' '}
+                                <span className="text-white">{formatDateTime(campaign.completionDate)}</span>
+                              </div>
+                              {campaign.completionSummary && (
+                                <div className="mt-2 pt-2 border-t border-dark-700">
+                                  <span className="text-gray-500">Completion Summary:</span>
+                                  <div className="text-white mt-1 italic">{campaign.completionSummary}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Timeline Overview */}
             <div className="bg-dark-900/50 rounded-xl p-5 border border-dark-700">
               <h3 className="text-gray-500 text-xs font-bold uppercase mb-4 flex items-center gap-2">
                 <Clock size={14} /> Timeline Overview
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500 text-sm">Start Date:</span>
-                  <span className="text-white font-medium">{formatDate(campaign.startDate)}</span>
+              <div className="space-y-4">
+                {/* Creation Date */}
+                {campaign.createdAt && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-500/10 border border-primary-500/30 flex items-center justify-center">
+                      <Calendar size={14} className="text-primary-400" />
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-gray-500 text-sm">Creation Date:</span>
+                      <span className="text-white font-medium">{formatDate(campaign.createdAt)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Start Date */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center">
+                    <Play size={14} className="text-blue-400" />
+                  </div>
+                  <div className="flex-1 flex items-center justify-between">
+                    <span className="text-gray-500 text-sm">Start Date:</span>
+                    <span className="text-white font-medium">{formatDate(campaign.startDate)}</span>
+                  </div>
                 </div>
-                {/* Show Approval Date if status is Approved */}
+
+                {/* Approval Date or Rejected Date */}
                 {campaign.status === 'Approved' && campaign.statusChangeDate && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 text-sm">Approval Date:</span>
-                    <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-gray-500 text-sm">Approval Date:</span>
+                      <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                    </div>
                   </div>
                 )}
-                {/* Show Rejected Date if status is Rejected */}
+
                 {campaign.status === 'Rejected' && campaign.statusChangeDate && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 text-sm">Rejected Date:</span>
-                    <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+                      <XCircle size={14} className="text-red-400" />
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-gray-500 text-sm">Rejected Date:</span>
+                      <span className="text-white font-medium">{formatDate(campaign.statusChangeDate)}</span>
+                    </div>
                   </div>
                 )}
-                {/* Show Completion Date if status is Completed */}
+
+                {/* Completion Date - Only show if status is Completed and there was an approval */}
                 {campaign.status === 'Completed' && campaign.completionDate && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 text-sm">Completion Date:</span>
-                    <span className="text-white font-medium">{formatDate(campaign.completionDate)}</span>
-                  </div>
-                )}
-                {/* Show End Date if campaign is completed and endDate exists */}
-                {campaign.status === 'Completed' && campaign.endDate && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 text-sm">End Date:</span>
-                    <span className="text-white font-medium">{formatDate(campaign.endDate)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center">
+                      <Check size={14} className="text-green-400" />
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-gray-500 text-sm">Completion Date:</span>
+                      <span className="text-white font-medium">{formatDate(campaign.completionDate)}</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -956,7 +1076,7 @@ const Campaigns: React.FC = () => {
       setIsConfirmCompletionOpen(false);
 
       try {
-        const updatedList = await dataService.completeCampaign(campaignToComplete.id, compData.date, compData.summary);
+        const updatedList = await dataService.completeCampaign(campaignToComplete.id, compData.date, compData.summary, currentUserEmail || undefined);
         setCampaigns(updatedList);
         
         // Update selected campaign details immediately if open

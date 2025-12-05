@@ -73,7 +73,17 @@ export interface Campaign {
   createdBy?: string; // Email of the user who created this campaign
   createdAt?: string; // Date when campaign was created
   // Status change tracking
-  statusChangeDate?: string; // Date when status was changed from Pending
-  statusChangeSummary?: string; // Summary/reason for status change
-  statusChangedBy?: string; // Email of the user who changed the status
+  statusChangeDate?: string; // Date when status was changed from Pending (deprecated, use statusChangeHistory)
+  statusChangeSummary?: string; // Summary/reason for status change (deprecated, use statusChangeHistory)
+  statusChangedBy?: string; // Email of the user who changed the status (deprecated, use statusChangeHistory)
+  // Status change history - tracks all status changes
+  statusChangeHistory?: StatusChangeEntry[];
+}
+
+export interface StatusChangeEntry {
+  fromStatus: CampaignStatus;
+  toStatus: CampaignStatus;
+  changedAt: string; // ISO timestamp
+  changedBy?: string; // Email of the user who changed the status
+  summary?: string; // Summary/reason for status change
 }
