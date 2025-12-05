@@ -117,7 +117,7 @@ const Requests: React.FC = () => {
                         className="flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg border border-red-900/50 text-red-500 hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                       >
                         <X size={16} className="md:w-[18px] md:h-[18px]" />
-                        <span className="hidden sm:inline">Reject</span>
+                        <span className="hidden sm:inline">{userRole === 'manager' ? 'Revoke Access' : 'Reject'}</span>
                         <span className="sm:hidden">✕</span>
                       </button>
                       <button 
@@ -153,11 +153,13 @@ const Requests: React.FC = () => {
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 ${
                         request.status === 'approved' 
                           ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                          : request.status === 'revoked'
-                            ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-                            : 'bg-red-500/10 text-red-500 border-red-500/20'
+                          : request.status === 'rejected'
+                            ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                            : request.status === 'revoked'
+                              ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                              : 'bg-red-500/10 text-red-500 border-red-500/20'
                       }`}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        {request.status === 'rejected' ? 'Revoked' : (request.status.charAt(0).toUpperCase() + request.status.slice(1))}
                       </span>
                     </div>
                     <div className="flex gap-2">
@@ -166,7 +168,7 @@ const Requests: React.FC = () => {
                           onClick={() => handleStatusUpdate(request.id, 'rejected')}
                           className="flex-1 text-red-500 hover:text-red-400 text-sm font-medium flex items-center justify-center gap-1 px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors border border-red-500/20"
                         >
-                          <X size={14} /> Reject
+                          <X size={14} /> {userRole === 'manager' ? 'Revoke Access' : 'Reject'}
                         </button>
                       ) : (
                         <button
@@ -204,11 +206,13 @@ const Requests: React.FC = () => {
                           <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
                             request.status === 'approved' 
                               ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                              : request.status === 'revoked'
-                                ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
-                                : 'bg-red-500/10 text-red-500 border-red-500/20'
+                              : request.status === 'rejected'
+                                ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                : request.status === 'revoked'
+                                  ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                                  : 'bg-red-500/10 text-red-500 border-red-500/20'
                           }`}>
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            {request.status === 'rejected' ? 'Revoked' : (request.status.charAt(0).toUpperCase() + request.status.slice(1))}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -216,9 +220,9 @@ const Requests: React.FC = () => {
                             <button
                               onClick={() => handleStatusUpdate(request.id, 'rejected')}
                               className="text-red-500 hover:text-red-400 text-sm font-medium flex items-center gap-1 px-3 py-1 rounded hover:bg-red-500/10 transition-colors"
-                              title="Reject Access"
+                              title={userRole === 'manager' ? 'Revoke Access' : 'Reject Access'}
                             >
-                              <X size={14} /> Reject
+                              <X size={14} /> {userRole === 'manager' ? 'Revoke Access' : 'Reject'}
                             </button>
                           ) : (
                             <button

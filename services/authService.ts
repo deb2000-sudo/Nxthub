@@ -51,25 +51,25 @@ export const login = async (email: string, password: string): Promise<{ success:
     
     try {
       // Fetch user data from Firestore
-      console.log(`🔍 Searching for user with email: ${email}`);
+      // console.log(`🔍 Searching for user with email: ${email}`);
       const userData = await firebaseUsersService.getUserByEmail(email);
       
       if (userData) {
-        console.log(`✅ User found in database:`, { email: userData.email, role: userData.role, id: userData.id });
+        // console.log(`✅ User found in database:`, { email: userData.email, role: userData.role, id: userData.id });
         // Check if password matches (Custom Auth)
         // Note: In a real app, passwords should be hashed. Here we compare plaintext as requested.
         const userWithPassword = userData as any;
         if (password && userWithPassword.password && userWithPassword.password !== password) {
-           console.log(`❌ Password mismatch for user: ${email}`);
+           // console.log(`❌ Password mismatch for user: ${email}`);
            return { success: false, message: 'Incorrect password' };
         }
         
         // Sanitize user object - remove password before returning
         const { password: _, ...sanitizedUser } = userWithPassword;
         user = sanitizedUser as User;
-        console.log(`✅ Login successful for user: ${email}`);
+        // console.log(`✅ Login successful for user: ${email}`);
       } else {
-        console.log(`❌ User not found in database: ${email}`);
+        // console.log(`❌ User not found in database: ${email}`);
         // Bootstrap Check: Allow default admin to login if DB is empty/deleted
         if (email.toLowerCase().trim() === 'admin@brandnxtwave.co.in' && password === 'nxt@123') {
           console.log(`✅ Using bootstrap admin account`);
@@ -87,7 +87,7 @@ export const login = async (email: string, password: string): Promise<{ success:
 
         if (firebaseAuthSuccess) {
            // User exists in Auth but not in Firestore (rare, but possible)
-           console.log(`⚠️ User exists in Firebase Auth but not in Firestore: ${email}`);
+           // console.log(`⚠️ User exists in Firebase Auth but not in Firestore: ${email}`);
            return { success: false, message: 'User account not properly configured. Please contact admin.' };
         }
         // If user not found and Firebase Auth also failed, we'll return "User not found" below

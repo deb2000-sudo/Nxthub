@@ -15,7 +15,7 @@ import {
   DocumentSnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Campaign, Influencer, CampaignStatus, User, Role, Department, AccessRequest, RequestStatus } from '../types';
+import { Campaign, Influencer, CampaignStatus, User, Role, Department, AccessRequest, RequestStatus, StatusChangeEntry } from '../types';
 import { MOCK_CAMPAIGNS, MOCK_INFLUENCERS, MOCK_USERS } from '../constants';
 
 // Collection names
@@ -29,13 +29,17 @@ const COLLECTIONS = {
 
 // Helper to convert Firestore timestamp to ISO string
 const timestampToISO = (timestamp: any): string => {
+  // Handle empty strings - return empty string instead of creating a new date
+  if (timestamp === '' || (typeof timestamp === 'string' && timestamp.trim() === '')) {
+    return '';
+  }
   if (timestamp?.toDate) {
     return timestamp.toDate().toISOString();
   }
   if (timestamp instanceof Date) {
     return timestamp.toISOString();
   }
-  return timestamp || new Date().toISOString();
+  return timestamp || '';
 };
 
 // Helper to convert ISO string to Firestore timestamp
@@ -58,16 +62,28 @@ export const firebaseCampaignsService = {
         return [];
       }
       
-      return querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        startDate: timestampToISO(doc.data().startDate),
-        endDate: timestampToISO(doc.data().endDate),
-        completionDate: doc.data().completionDate ? timestampToISO(doc.data().completionDate) : undefined,
-        statusChangeDate: doc.data().statusChangeDate ? timestampToISO(doc.data().statusChangeDate) : undefined,
-        createdAt: doc.data().createdAt ? timestampToISO(doc.data().createdAt) : undefined,
-        lastUpdated: doc.data().lastUpdated ? timestampToISO(doc.data().lastUpdated) : new Date().toISOString(),
-      })) as Campaign[];
+      return querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        // Parse statusChangeHistory array
+        const statusChangeHistory = data.statusChangeHistory 
+          ? (data.statusChangeHistory as any[]).map((entry: any) => ({
+              ...entry,
+              changedAt: timestampToISO(entry.changedAt)
+            }))
+          : undefined;
+        
+        return {
+          id: doc.id,
+          ...data,
+          startDate: timestampToISO(data.startDate),
+          endDate: data.endDate ? timestampToISO(data.endDate) : '',
+          completionDate: data.completionDate ? timestampToISO(data.completionDate) : undefined,
+          statusChangeDate: data.statusChangeDate ? timestampToISO(data.statusChangeDate) : undefined,
+          createdAt: data.createdAt ? timestampToISO(data.createdAt) : undefined,
+          lastUpdated: data.lastUpdated ? timestampToISO(data.lastUpdated) : new Date().toISOString(),
+          statusChangeHistory,
+        } as Campaign;
+      });
     } catch (error) {
       console.error('Error fetching campaigns:', error);
       throw error;
@@ -86,6 +102,14 @@ export const firebaseCampaignsService = {
       }
       
       const data = campaignSnap.data();
+      // Parse statusChangeHistory array
+      const statusChangeHistory = data.statusChangeHistory 
+        ? (data.statusChangeHistory as any[]).map((entry: any) => ({
+            ...entry,
+            changedAt: timestampToISO(entry.changedAt)
+          }))
+        : undefined;
+      
       return {
         id: campaignSnap.id,
         ...data,
@@ -95,6 +119,7 @@ export const firebaseCampaignsService = {
         statusChangeDate: data.statusChangeDate ? timestampToISO(data.statusChangeDate) : undefined,
         createdAt: data.createdAt ? timestampToISO(data.createdAt) : undefined,
         lastUpdated: data.lastUpdated ? timestampToISO(data.lastUpdated) : new Date().toISOString(),
+        statusChangeHistory,
       } as Campaign;
     } catch (error) {
       console.error('Error fetching campaign:', error);
@@ -151,13 +176,46 @@ export const firebaseCampaignsService = {
       }
 
       const currentCampaign = campaignDoc.data() as Campaign;
+      const fromStatus = currentCampaign.status;
+      
+      // Only allow status changes if not already Approved/Rejected/Completed (unless changing to Completed from Approved)
+      if (fromStatus !== 'Pending' && fromStatus !== 'Approved') {
+        throw new Error('Cannot change status from this state');
+      }
+      
+      // Only allow changing to Completed if current status is Approved
+      if (status === 'Completed' && fromStatus !== 'Approved') {
+        throw new Error('Can only complete campaigns that are Approved');
+      }
+
       const updateData: any = {
         status,
         lastUpdated: Timestamp.now(),
       };
 
-      // Only set status change tracking if changing from Pending
-      if (currentCampaign.status === 'Pending' && (status === 'Approved' || status === 'Rejected' || status === 'Completed')) {
+      // Get existing status change history or initialize empty array
+      const existingHistory = currentCampaign.statusChangeHistory || [];
+      
+      // Create new status change entry
+      const newStatusChange = {
+        fromStatus,
+        toStatus: status,
+        changedAt: Timestamp.now(), // Store as Firestore Timestamp
+        changedBy: changedBy,
+        summary: summary,
+      };
+      
+      // Convert existing history entries to Firestore format (if needed)
+      const historyForFirestore = existingHistory.map(entry => ({
+        ...entry,
+        changedAt: entry.changedAt ? (typeof entry.changedAt === 'string' ? isoToTimestamp(entry.changedAt) : entry.changedAt) : Timestamp.now()
+      }));
+      
+      // Add to history array
+      updateData.statusChangeHistory = [...historyForFirestore, newStatusChange];
+
+      // Keep backward compatibility - set statusChangeDate if changing from Pending
+      if (fromStatus === 'Pending' && (status === 'Approved' || status === 'Rejected' || status === 'Completed')) {
         updateData.statusChangeDate = Timestamp.now();
         if (summary) {
           updateData.statusChangeSummary = summary;
@@ -178,16 +236,52 @@ export const firebaseCampaignsService = {
     }
   },
 
-  async completeCampaign(id: string, date: string, summary: string): Promise<Campaign> {
+  async completeCampaign(id: string, date: string, summary: string, changedBy?: string): Promise<Campaign> {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
       const campaignRef = doc(db, COLLECTIONS.CAMPAIGNS, id);
+      const campaignDoc = await getDoc(campaignRef);
+      
+      if (!campaignDoc.exists()) {
+        throw new Error('Campaign not found');
+      }
+
+      const currentCampaign = campaignDoc.data() as Campaign;
+      const fromStatus = currentCampaign.status;
+      
+      // Get existing status change history or initialize empty array
+      const existingHistory = currentCampaign.statusChangeHistory || [];
+      
+      // Create new status change entry for completion
+      const now = new Date();
+      const newStatusChange = {
+        fromStatus: fromStatus as CampaignStatus,
+        toStatus: 'Completed' as CampaignStatus,
+        changedAt: Timestamp.now(), // Store as Firestore Timestamp
+        changedBy: changedBy,
+        summary: summary,
+      };
+      
+      // Convert completion date to timestamp (with time component)
+      const completionDateTime = new Date(date);
+      // If only date is provided, set time to current time
+      if (date.length === 10) {
+        completionDateTime.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+      
+      // Convert existing history entries to Firestore format (if needed)
+      const historyForFirestore = existingHistory.map(entry => ({
+        ...entry,
+        changedAt: entry.changedAt ? (typeof entry.changedAt === 'string' ? isoToTimestamp(entry.changedAt) : entry.changedAt) : Timestamp.now()
+      }));
+      
       await updateDoc(campaignRef, {
         status: 'Completed' as CampaignStatus,
         endDate: isoToTimestamp(date), // Set endDate when completing
-        completionDate: isoToTimestamp(date),
+        completionDate: Timestamp.fromDate(completionDateTime), // Include time
         completionSummary: summary,
+        statusChangeHistory: [...historyForFirestore, newStatusChange],
         lastUpdated: Timestamp.now(),
       });
       
@@ -482,12 +576,12 @@ export const firebaseUsersService = {
             if (userEmail === searchEmail) {
                // Map document name to role (admins -> admin)
                const role = roleDoc.slice(0, -1) as Role; 
-               console.log(`✅ Found user in root document: ${roleDoc}`, { email: data.email, role });
+               // console.log(`✅ Found user in root document: ${roleDoc}`, { email: data.email, role });
                return { id: roleDoc, ...data, role } as User;
             }
           }
         } catch (rootError: any) {
-          console.warn(`Error checking root document ${roleDoc}:`, rootError.code || rootError.message);
+          // console.warn(`Error checking root document ${roleDoc}:`, rootError.code || rootError.message);
           // Continue to next role
         }
       }
@@ -503,16 +597,16 @@ export const firebaseUsersService = {
           if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             const userData = doc.data();
-            console.log(`✅ Found user in subcollection: ${roleDoc}/created_users`, { email: userData.email, id: doc.id });
+            // console.log(`✅ Found user in subcollection: ${roleDoc}/created_users`, { email: userData.email, id: doc.id });
             return { id: doc.id, ...userData } as User;
           }
         } catch (subError: any) {
-          console.warn(`Error checking subcollection ${roleDoc}/created_users:`, subError.code || subError.message);
+          // console.warn(`Error checking subcollection ${roleDoc}/created_users:`, subError.code || subError.message);
           // Continue to next role
         }
       }
       
-      console.log(`❌ User not found with email: ${email} (searched as: ${searchEmail})`);
+      // console.log(`❌ User not found with email: ${email} (searched as: ${searchEmail})`);
       return null;
     } catch (error: any) {
       console.error('Error fetching user by email:', error);
@@ -603,13 +697,13 @@ export const firebaseUsersService = {
         if (docSnap.exists()) {
           await deleteDoc(docRef);
           deleted = true;
-          console.log(`Deleted user ${userId} from ${roleDoc}`);
+          // console.log(`Deleted user ${userId} from ${roleDoc}`);
           break;
         }
       }
       
       if (!deleted) {
-         console.warn(`User ${userId} not found for deletion`);
+         // console.warn(`User ${userId} not found for deletion`);
       }
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -621,7 +715,7 @@ export const firebaseUsersService = {
     if (!db) throw new Error('Firestore not initialized');
     
     try {
-      console.log('Initializing root user documents...');
+      // console.log('Initializing root user documents...');
       
       // 1. Admin Root Doc
       await setDoc(doc(db, COLLECTIONS.USERS, 'admins'), {
@@ -652,7 +746,7 @@ export const firebaseUsersService = {
         createdAt: new Date().toISOString()
       });
 
-      console.log('✅ Initialized root user documents');
+      // console.log('✅ Initialized root user documents');
     } catch (error) {
       console.error('Error initializing mock data:', error);
       throw error;
