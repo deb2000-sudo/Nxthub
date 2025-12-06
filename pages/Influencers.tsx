@@ -1696,69 +1696,68 @@ const Influencers: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Influencers</h1>
-          <p className="text-gray-400">{filteredInfluencers.length} influencers found.</p>
+          <h1 className="text-2xl md:text-3xl lg:text-3xl font-bold text-white mb-1 md:mb-2">Influencers</h1>
         </div>
-        <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
-           <div className="relative flex-grow md:flex-grow-0">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap lg:flex-nowrap">
+           <div className="relative w-full sm:w-auto flex-grow lg:flex-grow-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name or handle..." 
-                className="w-full md:w-64 bg-dark-800 border border-dark-700 text-sm rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary-500 text-slate-200 placeholder-gray-600 transition-all"
+                className="w-full sm:w-48 md:w-56 lg:w-64 bg-dark-800 border border-dark-700 text-sm rounded-lg pl-10 pr-4 py-2 md:py-2.5 focus:outline-none focus:border-primary-500 text-slate-200 placeholder-gray-600 transition-all"
               />
            </div>
           
           <button 
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${isFilterOpen ? 'bg-dark-700 border-primary-500 text-white' : 'bg-dark-800 border-dark-700 text-gray-300 hover:text-white hover:border-gray-500'}`}
+            className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 border rounded-lg transition-colors text-sm md:text-base ${isFilterOpen ? 'bg-dark-700 border-primary-500 text-white' : 'bg-dark-800 border-dark-700 text-gray-300 hover:text-white hover:border-gray-500'}`}
           >
-            <Filter size={18} />
+            <Filter size={16} className="md:w-[18px] md:h-[18px]" />
             <span className="hidden sm:inline">Filters</span>
           </button>
           
-           <div className="flex bg-dark-800 rounded-lg border border-dark-700 p-1">
+           <div className="flex bg-dark-800 rounded-lg border border-dark-700 p-0.5 md:p-1">
               <button 
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
+                className={`p-1.5 md:p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
               >
-                <Grid size={18} />
+                <Grid size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
+                className={`p-1.5 md:p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
               >
-                <List size={18} />
+                <List size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
            </div>
            
            <button 
              onClick={handleCreateClick}
-             className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors shadow-lg shadow-primary-600/20 flex items-center gap-2 ml-2"
+             className="bg-primary-600 hover:bg-primary-500 text-white px-3 md:px-4 py-2 md:py-2.5 rounded-lg font-medium text-sm transition-colors shadow-lg shadow-primary-600/20 flex items-center gap-1.5 md:gap-2"
            >
-              <Plus size={18} />
+              <Plus size={16} className="md:w-[18px] md:h-[18px]" />
               <span className="hidden sm:inline">Add Influencer</span>
            </button>
         </div>
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex items-center gap-1 bg-dark-800 p-1 rounded-xl w-fit mb-6 border border-dark-700">
+      <div className="flex items-center gap-0.5 md:gap-1 bg-dark-800 p-0.5 md:p-1 rounded-xl w-fit mb-4 md:mb-6 border border-dark-700">
           <button 
              onClick={() => setActiveTab('all')}
-             className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+             className={`px-3 md:px-4 lg:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             All Influencers
           </button>
           <button 
              onClick={() => setActiveTab('my')}
-             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'my' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+             className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 lg:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${activeTab === 'my' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
-            <User size={16} />
+            <User size={14} className="md:w-4 md:h-4" />
             My Influencers
           </button>
       </div>

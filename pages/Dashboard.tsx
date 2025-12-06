@@ -22,6 +22,7 @@ const Dashboard: React.FC = () => {
     ? allCampaigns.filter(c => c.department.toLowerCase() === dept.toLowerCase())
     : allCampaigns;
 
+  
   // Sort by lastUpdated (descending) so most recent changes appear first
   const sortedCampaigns = [...relevantCampaigns].sort((a, b) => {
     const dateA = new Date(a.lastUpdated || a.startDate).getTime();
@@ -33,6 +34,10 @@ const Dashboard: React.FC = () => {
   const totalInfluencers = allInfluencers.length;
   const totalCampaigns = relevantCampaigns.length;
   const approvedCampaigns = relevantCampaigns.filter(c => c.status === 'Approved').length;
+  
+  console.log('Dashboard Debug - Total Campaigns Count:', totalCampaigns);
+  console.log('Dashboard Debug - Approved Campaigns Count:', approvedCampaigns);
+  console.log('Dashboard Debug - Approved Status Campaigns:', relevantCampaigns.filter(c => c.status === 'Approved'));
 
   const getInfluencerName = (id: string) => {
     const influencer = allInfluencers.find(i => i.id === id);

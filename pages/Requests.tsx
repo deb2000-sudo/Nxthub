@@ -69,15 +69,15 @@ const Requests: React.FC = () => {
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Access Requests</h1>
-        <p className="text-gray-400">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl lg:text-3xl font-bold text-white mb-1 md:mb-2">Access Requests</h1>
+        <p className="text-sm md:text-base text-gray-400">
           Manage access requests for <span className="text-primary-400 font-semibold">{sessionUser.department}</span> department.
         </p>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-12 text-gray-500">Loading requests...</div>
+        <div className="text-center py-12 text-sm md:text-base text-gray-500">Loading requests...</div>
       ) : (
         <div className="space-y-8">
           {/* Pending Requests Section */}

@@ -6,6 +6,7 @@ import { firebaseDepartmentsService, firebaseUsersService } from '../services/fi
 import { getSession } from '../services/authService';
 import { MOCK_USERS } from '../constants';
 import SearchableSelect, { Option } from '../components/SearchableSelect';
+import MultiSelect from '../components/MultiSelect';
 import { Filter, Plus, Calendar, CheckCircle2, AlertCircle, ChevronDown, Lock, Search, X, Grid, List, Clock, IndianRupee, Briefcase, FileText, User, Pencil, Trash2, AlertTriangle, Play, XCircle, Check } from 'lucide-react';
 
 const Campaigns: React.FC = () => {
@@ -48,7 +49,7 @@ const Campaigns: React.FC = () => {
   
   // Filter States
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [deptFilter, setDeptFilter] = useState<string>('All');
+  const [deptFilter, setDeptFilter] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<string>('');
 
   // View Mode
@@ -235,7 +236,7 @@ const Campaigns: React.FC = () => {
   // Filter campaigns
   const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = deptFilter === 'All' || campaign.department === deptFilter;
+    const matchesDept = deptFilter.length === 0 || deptFilter.includes(campaign.department);
     const matchesDate = !dateFilter || campaign.startDate === dateFilter;
     
     let matchesTab = true;
@@ -246,10 +247,7 @@ const Campaigns: React.FC = () => {
     return matchesSearch && matchesDept && matchesDate && matchesTab;
   });
 
-  const deptOptions: Option[] = [
-    { value: 'All', label: 'All Departments' },
-    ...departments.map(d => ({ value: d.name, label: d.name }))
-  ];
+  const deptOptions: Option[] = departments.map(d => ({ value: d.name, label: d.name }));
 
   // --- Modal: Campaign Details ---
   const CampaignDetailsModal = ({ campaign, onClose }: { campaign: Campaign, onClose: () => void }) => {
@@ -270,8 +268,8 @@ const Campaigns: React.FC = () => {
             <div className="flex items-center justify-between p-6 border-b border-dark-700 bg-dark-900/50">
                 <div>
                     <h2 className="text-2xl font-bold text-white mb-1">{campaign.name}</h2>
-                    <div className="flex items-center gap-3">
-                        <span className="px-2.5 py-0.5 rounded-md bg-dark-800 border border-dark-600 text-xs font-medium text-gray-300">
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <span className="px-2.5 py-0.5 rounded-md bg-dark-800 border border-dark-600 text-xs font-medium text-gray-300 whitespace-nowrap">
                            {campaign.department}
                         </span>
                         <div className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(campaign.status)}`}>
@@ -322,9 +320,9 @@ const Campaigns: React.FC = () => {
                                 setCampaignForSummary(campaign);
                                 setIsCampaignSummaryModalOpen(true);
                             }}
-                            className="w-full px-5 py-3.5 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold hover:from-primary-500 hover:to-primary-400 transition-all duration-200 shadow-lg shadow-primary-600/30 hover:shadow-xl hover:shadow-primary-600/40 flex items-center justify-center gap-2.5 text-sm group transform hover:scale-[1.02] active:scale-[0.98]"
+                            className="w-full px-5 py-3.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20 flex items-center justify-center gap-2.5 text-sm"
                         >
-                            <FileText size={18} className="group-hover:scale-110 transition-transform duration-200" />
+                            <FileText size={18} />
                             <span>View Campaign Summary</span>
                         </button>
                     </div>
@@ -402,10 +400,6 @@ const Campaigns: React.FC = () => {
 
             {/* Footer Actions */}
             <div className="p-6 border-t border-dark-700 bg-dark-900 flex justify-end gap-3">
-                 <button onClick={onClose} className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-dark-800 transition-colors text-sm font-medium">
-                    Close
-                 </button>
-                 
                  {editable && campaign.status === 'Approved' && (
                      <button 
                         onClick={() => {
@@ -793,10 +787,10 @@ const Campaigns: React.FC = () => {
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-dark-700 bg-dark-900 flex justify-end">
-            <button 
-              onClick={onClose} 
-              className="px-5 py-2 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors text-sm shadow-lg shadow-primary-600/20"
+          <div className="flex items-center justify-end p-6 border-t border-dark-700 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 rounded-lg bg-primary-600 text-white font-medium hover:bg-primary-500 transition-colors"
             >
               Close
             </button>
@@ -1187,56 +1181,53 @@ const Campaigns: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Campaigns</h1>
-          <p className="text-gray-400">
-             Viewing all campaigns as <span className="text-primary-400 font-semibold capitalize">{role}</span>
-             {role === 'manager' && <span> in <span className="text-primary-400 font-semibold capitalize">{userDept}</span></span>}
-          </p>
+          <h1 className="text-2xl md:text-3xl lg:text-3xl font-bold text-white mb-1 md:mb-2">Campaigns</h1>
+          
         </div>
-        <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
+        <div className="flex items-center gap-2 md:gap-3 flex-wrap lg:flex-nowrap">
           {/* Search Input */}
-          <div className="relative md:block">
+          <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..." 
-                className="bg-dark-800 border border-dark-700 text-sm rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary-500 w-40 md:w-56 text-slate-200 placeholder-gray-600 transition-all"
+                className="bg-dark-800 border border-dark-700 text-sm rounded-lg pl-10 pr-4 py-2 md:py-2.5 focus:outline-none focus:border-primary-500 w-full sm:w-40 md:w-48 lg:w-56 text-slate-200 placeholder-gray-600 transition-all"
               />
           </div>
 
           <button 
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg transition-colors ${isFilterOpen ? 'bg-dark-700 border-primary-500 text-white' : 'bg-dark-800 border-dark-700 text-gray-300 hover:text-white hover:border-gray-500'}`}
+            className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 border rounded-lg transition-colors text-sm md:text-base ${isFilterOpen ? 'bg-dark-700 border-primary-500 text-white' : 'bg-dark-800 border-dark-700 text-gray-300 hover:text-white hover:border-gray-500'}`}
           >
-            <Filter size={18} />
+            <Filter size={16} className="md:w-[18px] md:h-[18px]" />
             <span className="hidden sm:inline">Filters</span>
           </button>
           
-          <div className="flex bg-dark-800 rounded-lg border border-dark-700 p-1">
+          <div className="flex bg-dark-800 rounded-lg border border-dark-700 p-0.5 md:p-1">
               <button 
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
+                className={`p-1.5 md:p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
               >
-                <Grid size={18} />
+                <Grid size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button 
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
+                className={`p-1.5 md:p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-dark-700 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}
               >
-                <List size={18} />
+                <List size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
           </div>
 
           {(role === 'manager' || role === 'executive' || role === 'admin' || role === 'super_admin') && (
               <button 
                 onClick={handleCreateClick}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20"
+                className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors shadow-lg shadow-primary-600/20 text-sm md:text-base"
               >
-                <Plus size={18} />
+                <Plus size={16} className="md:w-[18px] md:h-[18px]" />
                 <span className="hidden sm:inline">Create Campaign</span>
               </button>
           )}
@@ -1244,10 +1235,10 @@ const Campaigns: React.FC = () => {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex items-center gap-1 bg-dark-800 p-1 rounded-xl w-fit mb-6 border border-dark-700">
+      <div className="flex items-center gap-0.5 md:gap-1 bg-dark-800 p-0.5 md:p-1 rounded-xl w-fit mb-4 md:mb-6 border border-dark-700">
           <button 
              onClick={() => setActiveTab('all')}
-             className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+             className={`px-3 md:px-4 lg:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
           >
             All Campaigns
           </button>
@@ -1267,7 +1258,7 @@ const Campaigns: React.FC = () => {
                 {/* Department Filter */}
                 <div>
                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Department</label>
-                   <SearchableSelect 
+                   <MultiSelect 
                      options={deptOptions}
                      value={deptFilter}
                      onChange={setDeptFilter}
@@ -1278,12 +1269,22 @@ const Campaigns: React.FC = () => {
                 {/* Date Filter */}
                 <div>
                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Date</label>
-                   <input 
-                      type="date"
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      className="w-full bg-dark-800 border border-dark-700 text-sm rounded-lg px-3 py-2.5 text-slate-200 focus:outline-none focus:border-primary-500 [color-scheme:dark]"
-                   />
+                   <div className="relative">
+                     <input 
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="w-full bg-dark-800 border border-dark-700 text-sm rounded-lg px-3 py-2.5 pr-10 text-slate-200 focus:outline-none focus:border-primary-500 [color-scheme:dark]"
+                     />
+                     {dateFilter && (
+                       <button
+                         onClick={() => setDateFilter('')}
+                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                       >
+                         <X size={16} />
+                       </button>
+                     )}
+                   </div>
                 </div>
             </div>
         </div>
@@ -1291,24 +1292,24 @@ const Campaigns: React.FC = () => {
 
       {/* View Content */}
       {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 lg:gap-6">
               {filteredCampaigns.map(campaign => (
                   <div 
                     key={campaign.id}
                     onClick={() => setSelectedCampaign(campaign)}
-                    className="bg-dark-800 border border-dark-700 rounded-xl p-5 hover:border-primary-500 hover:shadow-[0_0_15px_-3px_rgba(59,130,246,0.3)] hover:-translate-y-1 transition-all cursor-pointer group"
+                    className="bg-dark-800 border border-dark-700 rounded-xl p-4 md:p-5 hover:border-primary-500 hover:shadow-[0_0_15px_-3px_rgba(59,130,246,0.3)] hover:-translate-y-1 transition-all cursor-pointer group relative"
                   >
-                      <div className="flex justify-between items-start mb-3">
-                         <span className="px-2.5 py-1 rounded-md bg-dark-900 border border-dark-700 text-xs font-medium text-gray-300">
+                      <div className="flex justify-between items-start mb-2 md:mb-3">
+                         <span className="px-2 md:px-2.5 py-0.5 md:py-1 rounded-md bg-dark-900 border border-dark-700 text-[10px] md:text-xs font-medium text-gray-300">
                             {campaign.department}
                          </span>
-                         <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(campaign.status).replace('border', 'bg').split(' ')[0]}`}></div>
+                         <div className={`w-2 md:w-2.5 h-2 md:h-2.5 rounded-full ${getStatusColor(campaign.status).replace('border', 'bg').split(' ')[0]}`}></div>
                       </div>
                       
-                      <h3 className="text-lg font-bold text-white mb-1 truncate">{campaign.name}</h3>
+                      <h3 className="text-base md:text-lg font-bold text-white mb-1 truncate">{campaign.name}</h3>
                       
                       <div className="flex items-center justify-between mt-auto">
-                          <div className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(campaign.status)}`}>
+                          <div className={`px-2 md:px-2.5 py-0.5 md:py-1 rounded-full text-[10px] md:text-xs font-medium border ${getStatusColor(campaign.status)}`}>
                              {campaign.status}
                           </div>
                       </div>
